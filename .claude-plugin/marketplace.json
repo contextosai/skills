@@ -1,0 +1,24 @@
+{
+  "name": "contextosai-skills",
+  "owner": {
+    "name": "contextosai",
+    "email": "piyush@piyush.me"
+  },
+  "metadata": {
+    "description": "Contextos AI skills collection",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "example-skills",
+      "description": "A collection of example skills demonstrating the SKILL.md pattern, including commit messages, PR descriptions, and README polishing.",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/commit-message",
+        "./skills/pr-description",
+        "./skills/readme-polish"
+      ]
+    }
+  ]
+}
