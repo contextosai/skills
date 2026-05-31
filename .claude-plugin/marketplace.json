@@ -6,9 +6,18 @@
   },
   "metadata": {
     "description": "Contextos AI skills collection",
-    "version": "1.0.0"
+    "version": "1.1.0"
   },
   "plugins": [
+    {
+      "name": "harness-audit",
+      "description": "Production-readiness audit for AI agent harnesses. Runs against your agent's real repo and traces, scores 40 runtime controls with file:line evidence, assigns a maturity band, and emits a prioritized fix queue. No artifact, no pass.",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/harness-audit"
+      ]
+    },
     {
       "name": "example-skills",
       "description": "A collection of example skills demonstrating the SKILL.md pattern, including commit messages, PR descriptions, and README polishing.",

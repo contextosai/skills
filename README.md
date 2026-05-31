@@ -1,5 +1,8 @@
 # Skills
 
+[![Validate skills](https://github.com/contextosai/skills/actions/workflows/validate.yml/badge.svg)](https://github.com/contextosai/skills/actions/workflows/validate.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+
 Skills are folders of instructions, scripts, and resources that an agent loads
 dynamically to improve performance on specialized tasks. A skill teaches the
 agent how to complete a specific task in a repeatable way — writing a commit
@@ -24,15 +27,22 @@ Register this repository as a plugin marketplace:
 /plugin marketplace add contextosai/skills
 ```
 
-Then install the bundled skills:
+Then install a plugin. The production harness audit:
+
+```
+/plugin install harness-audit@contextosai-skills
+```
+
+Or the example skills (commit messages, PR descriptions, README polish):
 
 ```
 /plugin install example-skills@contextosai-skills
 ```
 
 Once installed, invoke a skill just by mentioning the task — for example,
-"write a commit message for my staged changes" will trigger the
-`commit-message` skill.
+"audit my agent harness for production readiness" triggers `harness-audit`, and
+"write a commit message for my staged changes" triggers `commit-message`. You
+can also run `harness-audit` explicitly as `/harness-audit`.
 
 ## Creating a skill
 
@@ -68,6 +78,26 @@ point.
 
 | Skill | Description |
 | ----- | ----------- |
+| [`harness-audit`](./skills/harness-audit) | Production-readiness audit for an AI agent harness: scores 40 runtime controls against your agent's real code with file:line evidence and emits a fix queue. |
 | [`commit-message`](./skills/commit-message) | Write a conventional git commit message from staged changes. |
 | [`pr-description`](./skills/pr-description) | Draft a PR title and description from a branch's commits and diff. |
 | [`readme-polish`](./skills/readme-polish) | Improve a README's clarity and structure without changing its meaning. |
+
+## Validating
+
+Every `SKILL.md` and the marketplace manifest are checked in CI on each push and
+pull request. Run the same check locally:
+
+```
+node scripts/validate-skills.mjs
+```
+
+## Contributing
+
+Contributions are welcome — see [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the
+skill format and the bar for inclusion, and please follow the
+[Code of Conduct](./CODE_OF_CONDUCT.md).
+
+## License
+
+Released under the [MIT License](./LICENSE).
