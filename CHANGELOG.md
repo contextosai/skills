@@ -6,6 +6,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- `SECURITY.md` with a private vulnerability-reporting policy.
+- `.github/CODEOWNERS` and Dependabot config for GitHub Actions updates.
+- Branch protection on `main` (PR + passing CI required, no force-push/deletion).
+
 ## [1.1.0] - 2026-05-31
 
 ### Added
