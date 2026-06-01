@@ -1,4 +1,4 @@
-# The 40-Control Harness Audit Checklist
+# The 44-Control Harness Audit Checklist
 
 The rubric for the audit. Every control has: the audit question, minimum **Pass**
 evidence, the immediate **Fail** signal, severity, where to look, and the
@@ -116,6 +116,20 @@ confirm the control is actually enforced at the right boundary.
 - **Where:** interrupt/human-in-the-loop (`interrupt`, `HumanApproval`, `require_approval`), approval queues.
 - **ContextOS:** Trust plane → /docs/foundations/governance
 
+### 42 — Outbound disclosure control · P0
+- **Q:** Is what *leaves* the agent — final answers, tool arguments, inter-agent handoffs, forwarded content — checked against data class, not just against who the recipient is?
+- **Pass:** Sensitive fields are minimized/redacted before they enter a tool argument, a message to another agent/component, or the final response; an egress check proves a classified field did not reach an unauthorized sink. Disclosure decisions are logged. (Routing the message to an authorized recipient is necessary but not sufficient — the *payload* must also be in scope.)
+- **Fail:** The recipient is permitted but the content is over-shared — PII, secrets, or out-of-scope records flow through handoff context, tool args, or the final answer unfiltered.
+- **Where:** output guardrails, handoff/context-passing code, message construction between agents, redaction applied to *outbound* content (not just data at rest). Pairs with data classification (#13) and privacy controls (#14).
+- **ContextOS:** Trust plane → /docs/foundations/governance
+
+### 43 — Inter-agent communication policy · P0 *(multi-agent only)*
+- **Q:** In a multi-agent harness, are who-may-talk-to-whom, who-owns-which-tools, and who-may-delegate-what declared and enforced?
+- **Pass:** Communication topology (allowed role→role channels), role-local authority (which role owns which tools and decisions), and delegation boundaries are explicit and enforced — a spoke cannot invoke a hub-only tool; a role cannot message a peer outside the topology; a coordinator delegates rather than executing specialist actions itself.
+- **Fail:** Any agent can call any tool or message any agent; a hub oversteps by executing what it should delegate. Coordination expands the risk surface without a matching control.
+- **Where:** multi-agent graph edges, handoff/`transfer`/`delegate` definitions, per-sub-agent tool grants, role-to-tool scoping. _If the harness is genuinely single-agent, mark **N/A** and say so._
+- **ContextOS:** Trust/Decision → /docs/foundations/governance, /docs/foundations/orchestration
+
 ---
 
 ## Tool-controlled
@@ -123,10 +137,10 @@ confirm the control is actually enforced at the right boundary.
 */docs/foundations/adapter-mesh, /docs/foundations/identity-layer*
 
 ### 15 — Tool manifest · P0
-- **Q:** Are available tools declared, versioned, and owned?
-- **Pass:** Tool manifest with schema, owner, risk class, timeout, retry, auth mode.
-- **Fail:** Tool list lives only in the prompt.
-- **Where:** tool/function definitions, `@tool`, MCP server config, tool registry.
+- **Q:** Are available tools declared, versioned, owned, and scoped to least privilege?
+- **Pass:** Tool manifest with schema, owner, risk class, timeout, retry, auth mode — and the tool surface is scoped to what the role/intent actually needs (an unused or over-broad tool grant is a control gap, not a convenience).
+- **Fail:** Tool list lives only in the prompt, or every agent gets the full toolbox regardless of task.
+- **Where:** tool/function definitions, `@tool`, MCP server config, tool registry, per-role/per-intent tool grants.
 - **ContextOS:** Action plane → /docs/foundations/adapter-mesh
 
 ### 16 — Tool Gateway · P0
@@ -164,6 +178,13 @@ confirm the control is actually enforced at the right boundary.
 - **Where:** code-exec/`eval`/shell tools, HTTP clients, sandbox/container config, egress rules.
 - **ContextOS:** Action plane → /docs/foundations/adapter-mesh, /docs/security
 
+### 41 — Resource/object scope binding · P0
+- **Q:** Are tool calls bound to an *authorized set of objects*, not merely a valid schema?
+- **Pass:** Write/read tools resolve the target object (customer, account, record, file, ticket, matter) against a per-task or per-user authorized scope — allowlist, ownership/tenancy check, or scope derived from the task — enforced outside the model. Out-of-scope object access is denied and logged with the attempted ID.
+- **Fail:** A schema-valid call can act on any ID the model emits — the *right tool on the wrong customer / file / record* passes unchecked. This is the most common live boundary violation: agents rarely pick an obviously wrong tool, they apply a reasonable tool to an out-of-scope object.
+- **Where:** authorization *beyond* type validation — ownership/tenancy checks, row-level security, scoped queries, `account_id`/`user_id`/`file_path`/`record_id` binding; NOT a Pydantic/zod type check that only proves the argument is well-formed.
+- **ContextOS:** Action/Trust → /docs/foundations/adapter-mesh, /docs/foundations/identity-layer
+
 ---
 
 ## Validated
@@ -178,9 +199,9 @@ confirm the control is actually enforced at the right boundary.
 
 ### 27 — Trajectory evals · P1
 - **Q:** Does evaluation check the path, not just the final answer?
-- **Pass:** Expected vs actual tool trajectory, step quality, unnecessary-tool-call detection.
-- **Fail:** Final answer judged "good" despite a wrong process.
-- **Where:** eval harness asserting tool-call sequences, step-level scoring.
+- **Pass:** Expected vs actual tool trajectory scored on all four axes — **coverage** (every needed tool was called), **precision** (no out-of-set tools invoked), **resource scope** (correct object/argument values, not just the right tool), and **minimality** (no redundant repeated calls).
+- **Fail:** Final answer judged "good" despite a wrong process — or judged on output alone with no path assertion.
+- **Where:** eval harness asserting tool-call sequences, step-level and argument-level scoring.
 - **ContextOS:** Trust plane → /docs/foundations/evaluation-observability
 
 ### 28 — Online validation · P0
@@ -191,11 +212,18 @@ confirm the control is actually enforced at the right boundary.
 - **ContextOS:** Trust plane → /docs/foundations/evaluation-observability
 
 ### 29 — Red-team coverage · P0
-- **Q:** Is the harness tested against adversarial behavior?
-- **Pass:** Prompt-injection, tool-abuse, data-leakage, jailbreak test suites.
-- **Fail:** Only happy-path demo queries are tested.
-- **Where:** `redteam`/`adversarial`/`injection` tests, security test dirs.
+- **Q:** Is the harness tested against adversarial behavior *and* realistic perturbation, not just happy-path queries?
+- **Pass:** Test suites span the three stressors that break harnesses in production: **(a) indirect injection** — a hidden instruction or planted canary in tool/document output does not propagate and induces no boundary crossing; **(b) ambiguous/underspecified goals** — the agent pauses for clarification or safely defers instead of taking an irreversible action on a guess; **(c) tool/runtime errors** — covered by honest-failure behavior (#44). Plus the classics: tool-abuse, data-leakage, jailbreak.
+- **Fail:** Only happy-path demo queries are tested; injection and ambiguity are untested.
+- **Where:** `redteam`/`adversarial`/`injection` tests, security test dirs, ambiguity/clarification fixtures.
 - **ContextOS:** Trust plane → /docs/foundations/evaluation-observability, /docs/security
+
+### 44 — Honest failure under tool error · P1
+- **Q:** When a tool or backend misbehaves, does the agent report failure instead of fabricating success?
+- **Pass:** On a tool error, empty result, or junk return, the agent acknowledges the failure in its output or state and either retries within scope or safely defers — verifiable from a boundary trace where a tool actually returned an error.
+- **Fail:** The agent invents a result, claims completion with no supporting tool call, or takes an out-of-scope action after the failure.
+- **Where:** error handling around tools, fallback branches (#34), and a boundary trace exercising a tool error; check the final answer against what the tools actually returned.
+- **ContextOS:** Trust plane → /docs/reference/failure-playbooks
 
 ---
 
@@ -348,7 +376,9 @@ Fix the most load-bearing failure first; these unblock the rest:
 | Agent charter (#1) | Autonomy, policy, release governance |
 | Context compiler (#6) | Grounding, validation, observability, replay |
 | Policy engine (#12) | Tool control, approval, privacy, compliance |
-| Identity & authorization (#18) | Tool safety, incident response, audit |
+| Identity & authorization (#18) | Tool safety, resource-scope binding, incident response, audit |
+| Resource/object scope binding (#41) | Trustworthy writes, disclosure control, tenancy isolation |
+| Inter-agent communication policy (#43) | Outbound disclosure, role-local authority, multi-agent safety |
 | Observability (#30) | Replay, rollback, measurement, incident analysis |
 | Release tuple (#35) | Offline evals, rollback, regression management |
 | Continuous improvement (#40) | Sustainable quality and post-incident repair |

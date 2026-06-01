@@ -2,7 +2,7 @@
 /**
  * Harness Audit — deterministic prescan.
  *
- * Walks a target repository and locates CANDIDATE evidence for the 40 harness
+ * Walks a target repository and locates CANDIDATE evidence for the 44 harness
  * controls, plus — more usefully — lists controls for which it found NO signal
  * at all (likely Fails worth confirming first). It never decides Pass/Fail:
  * a keyword match is a lead, not a control. The auditing agent must open each
@@ -68,6 +68,10 @@ const SIGNALS = [
   { c: "38", label: "Incident response", re: /\b(incident|runbook|oncall|on_call|postmortem|severity_matrix)\b/i },
   { c: "39", label: "Business measurement", re: /\b(csat|deflection|conversion|task_success|business_metric)\b/i },
   { c: "40", label: "Continuous improvement loop", re: /\b(improvement_loop|promotion_gate|correction|proposal_review|promote)\b/i },
+  { c: "41", label: "Resource/object scope binding", re: /\b(row_level_security|\brls\b|tenant_id|owner_id|authorize_resource|scope_check|belongs_to|ownership|is_authorized_for)\b/i },
+  { c: "42", label: "Outbound disclosure / egress redaction", re: /\b(redact_output|sanitize_output|scrub|egress_filter|minimi[sz]e|data_leak|leak_check|filter_response)\b/i },
+  { c: "43", label: "Inter-agent communication policy", re: /\b(handoff|delegate_to|transfer_to|sub_?agent|swarm|communication_policy|allowed_recipients|agent_graph|can_handoff)\b/i },
+  { c: "44", label: "Honest failure under tool error", re: /\b(on_tool_error|tool_error|acknowledge_failure|no_fabricat|honest|fallback_on_error|surface_error)\b/i },
 ]
 
 const hits = new Map(SIGNALS.map((s) => [s.label, []]))
@@ -158,6 +162,8 @@ out.push(`# Harness Audit — prescan`)
 out.push("")
 out.push(`- **Target:** \`${target}\``)
 out.push(`- **Detected framework:** ${detectFramework()}`)
+const maHits = hits.get("Inter-agent communication policy").length
+out.push(`- **Topology:** ${maHits > 0 ? `likely multi-agent (${maHits} handoff/delegate signal(s)) — score #42/#43, treat the inter-agent channel as an audit surface` : "no multi-agent signal found — likely single-agent; mark #43 N/A if confirmed"}`)
 out.push(`- **Files scanned:** ${filesScanned}${filesScanned >= MAX_FILES ? " (capped)" : ""}`)
 out.push("")
 out.push(`> Candidate evidence only. A match is a lead, not a Pass — open each and`)
@@ -180,6 +186,6 @@ out.push("")
 for (const s of missing) out.push(`- **[${s.c}] ${s.label}**`)
 out.push("")
 out.push(`---`)
-out.push(`Next: open \`reference/checklist.md\` and score all 40 controls. No artifact, no pass.`)
+out.push(`Next: open \`reference/checklist.md\` and score all 44 controls. No artifact, no pass.`)
 
 process.stdout.write(out.join("\n") + "\n")

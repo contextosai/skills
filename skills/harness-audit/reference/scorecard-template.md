@@ -51,6 +51,7 @@ Ordered by the dependency chain (most load-bearing first), not by control number
 
 ## Re-audit
 
-- **Fix one well, then re-run** — do not open 40 parallel workstreams.
+- **Fix one well, then re-run** — do not open dozens of parallel workstreams.
 - **Next audit trigger:** <before launch / after P0s closed / before high-risk tool rollout>
 - **Trace-dependent controls to re-check at runtime:** <list, if this was a code-only audit>
+- **N/A controls:** <e.g. #43 inter-agent communication policy, if the harness is single-agent>

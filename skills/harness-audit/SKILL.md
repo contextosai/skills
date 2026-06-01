@@ -2,7 +2,7 @@
 name: harness-audit
 description: >-
   Audit an AI agent's harness for production readiness by reading its ACTUAL
-  code, configs, and run traces — not a questionnaire. Scores 40 runtime
+  code, configs, and run traces — not a questionnaire. Scores 44 runtime
   controls (grouped into the eight ContextOS harness properties) Pass/Partial/
   Fail with file:line evidence, assigns a maturity band, and emits a prioritized
   fix queue. Use when someone asks to audit / assess / production-readiness-check
@@ -18,7 +18,9 @@ governing rule is the one thing that makes this audit worth anything:
 > **No artifact, no pass.** Judge the runtime record, not the architecture
 > diagram or the README. A control that is only *described* — in prose, in a
 > design doc, in the system prompt — is a **Fail**. A harness is evidence, not
-> confidence.
+> confidence. And prefer evidence from channels the agent cannot author: a
+> harness-emitted tool-call / resource-access / message record outranks anything
+> the model self-reports, because a self-report is gameable.
 
 Your job is to find the evidence in the target repository (and run traces, if
 available), score each control against that evidence, and hand back an action
@@ -51,6 +53,12 @@ OpenAI Agents SDK, Google ADK, Semantic Kernel, CrewAI, Mastra, or custom),
 the language, and where the agent's entry point, tools, prompts, policies,
 evals, and telemetry live. State what you found in one short paragraph.
 
+Also determine whether this is **single-agent or multi-agent** (handoffs,
+sub-agents, planner/worker roles, a graph with multiple agent nodes). If
+multi-agent, controls #42 (outbound disclosure) and #43 (communication policy)
+are in scope and the inter-agent message channel is a first-class audit surface
+— coordination expands the risk surface. If single-agent, mark #43 N/A and say so.
+
 ### 2. Prescan for evidence (≈3 min)
 
 Run the deterministic prescan to get a fast map of candidate evidence:
@@ -65,7 +73,7 @@ candidate evidence — it never decides Pass/Fail. **You** must open each hit an
 verify it actually enforces the control at the right boundary. A keyword match
 is not a control.
 
-### 3. Score the 40 controls
+### 3. Score the 44 controls
 
 Open `reference/checklist.md`. It lists every control with: the audit question,
 minimum pass evidence, the immediate fail signal, severity, where to look, and
@@ -89,7 +97,7 @@ pass state — a P0 control that is `Partial` is still a launch blocker.
 
 ### 4. Roll up and decide
 
-- Roll the 40 control scores into the **eight outcome groups** (context-aware,
+- Roll the 44 control scores into the **eight outcome groups** (context-aware,
   policy-governed, tool-controlled, validated, observable, reversible,
   measurable, continuously improving).
 - Determine the **maturity band** the evidence actually supports (see below),
@@ -108,7 +116,7 @@ ContextOS plane/doc to read. Order the queue by the dependency chain, not by
 control number — fix the most load-bearing failure first (a broken context
 compiler undermines grounding, validation, observability, and replay; a missing
 policy engine undermines tool control, approval, and privacy). Tell the user to
-fix one well and re-run the audit. Do not hand back forty parallel workstreams.
+fix one well and re-run the audit. Do not hand back dozens of parallel workstreams.
 
 ## Maturity bands
 
@@ -129,6 +137,16 @@ The band is not a label; it determines which failures block launch.
   ContextOS mapping is for the remediation pointer, not a naming requirement.
 - **Boundary over happy path.** If you only inspect a successful run, you have
   audited the demo, not the harness.
+- **Completion is not safety.** A run that finishes the task is evidence of
+  nothing about whether it stayed in bounds — task completion and safety are
+  routinely misaligned, and a higher completion rate often means *more* boundary
+  crossings, not fewer. A run that completed the task while crossing a boundary
+  is a **Fail**, not a partial credit.
+- **Watch the object, not just the tool.** The most common live violation is the
+  *right tool on the wrong object* — a valid refund/lookup/file call applied to
+  an out-of-scope customer, record, or path. Schema validation passes; the
+  boundary is still crossed. Scrutinize resource-scope binding (#41) and the
+  argument-level axis of trajectory evals (#27) accordingly.
 - **Be specific and falsifiable.** Every Pass cites `path:line`. Every Fail says
   where you looked. Never soften a P0 Fail into a suggestion.
 - **Don't fabricate.** If traces weren't provided, say the trace-dependent
@@ -137,6 +155,6 @@ The band is not a label; it determines which failures block launch.
 ## What this audit is grounded in
 
 This skill is the runnable form of the ContextOS eight-property harness audit:
-https://contextosai.com/blog/eight-property-harness-audit — 40 controls grouped
+https://contextosai.com/blog/eight-property-harness-audit — 44 controls grouped
 into eight outcomes, evidence required for every pass. The eight properties are
 defined at https://contextosai.com/docs/foundations/harness-engineering.
