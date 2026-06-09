@@ -11,6 +11,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `.github/CODEOWNERS` and Dependabot config for GitHub Actions updates.
 - Branch protection on `main` (PR + passing CI required, no force-push/deletion).
 
+### Changed
+- `harness-audit` expanded from 40 to 44 runtime controls, adding the
+  trajectory-boundary controls (#41–#44).
+
 ## [1.1.0] - 2026-05-31
 
 ### Added
