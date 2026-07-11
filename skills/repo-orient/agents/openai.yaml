@@ -1,0 +1,4 @@
+interface:
+  display_name: "Repository Orientation"
+  short_description: "Map an unfamiliar repository quickly"
+  default_prompt: "Use $repo-orient to map this repository and explain its important execution paths."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Implementation Planning"
+  short_description: "Turn a request into an executable plan"
+  default_prompt: "Use $plan-change to produce an evidence-backed implementation plan for this change."

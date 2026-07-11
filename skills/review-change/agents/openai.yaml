@@ -1,0 +1,4 @@
+interface:
+  display_name: "Change Review"
+  short_description: "Review changes through invariants and risk"
+  default_prompt: "Use $review-change to review this diff for concrete correctness and regression risks."

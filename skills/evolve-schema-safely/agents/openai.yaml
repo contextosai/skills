@@ -1,0 +1,4 @@
+interface:
+  display_name: "Safe Schema Evolution"
+  short_description: "Plan compatible and reversible migrations"
+  default_prompt: "Use $evolve-schema-safely to design and verify this schema or data migration."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Harness Audit"
+  short_description: "Audit agent harness production controls"
+  default_prompt: "Use $harness-audit to assess this agent harness for production readiness and produce an evidence-backed fix queue."

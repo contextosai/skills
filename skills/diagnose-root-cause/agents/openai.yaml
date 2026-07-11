@@ -1,0 +1,4 @@
+interface:
+  display_name: "Root Cause Diagnosis"
+  short_description: "Diagnose bugs from evidence and experiments"
+  default_prompt: "Use $diagnose-root-cause to investigate this failure and identify the smallest proven root cause."

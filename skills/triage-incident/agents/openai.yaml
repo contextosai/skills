@@ -1,0 +1,4 @@
+interface:
+  display_name: "Incident Triage"
+  short_description: "Stabilize and investigate live incidents"
+  default_prompt: "Use $triage-incident to assess this incident, contain impact, and organize the investigation."

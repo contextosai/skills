@@ -10,6 +10,36 @@ Scoring: **Pass** = an artifact proves it for a real path (cite `path:line`).
 absent, unenforced, unverifiable, or prose-only. Five-minute rule: evidence you
 can't find in ~5 min scores Fail. Severity is independent of pass state.
 
+## Evidence rules
+
+Judge the complete enforcement chain, not isolated artifacts:
+
+1. **Behavioral evidence (strongest):** a version-linked production trace or a
+   boundary/integration test shows the control allow and deny the right paths.
+2. **Wiring evidence:** the real entry point calls the control before the
+   protected boundary, and no obvious bypass path exists.
+3. **Definition evidence:** a policy, schema, helper, manifest, or dependency
+   exists but may not be loaded or invoked.
+4. **Assertion (weakest):** prose, diagrams, prompts, comments, or model
+   self-reports say the control exists.
+
+A Pass normally requires levels 1 + 2. A declarative platform binding may
+replace level 1 only when the binding is loaded by the deployed runtime and
+makes bypass impossible. Definition evidence alone is at most Partial;
+assertion alone is Fail. A unit test of a helper proves the helper, not runtime
+wiring. A stale or release-unknown trace cannot prove the current release.
+
+Apply these tie-breakers:
+
+- Score conflicting evidence at the weaker level and explain the conflict.
+- Score sampled coverage Partial unless the sample is demonstrably exhaustive.
+- Treat inaccessible external controls as **Unverified → Fail for launch** and
+  state what evidence would verify them.
+- Use **N/A** only where a control explicitly allows it (#43 for a confirmed
+  single-agent harness). A missing feature is otherwise Fail, not N/A.
+- Redact secrets, PII, and sensitive arguments in citations. Cite the smallest
+  safe line range or trace event identifier that still proves the claim.
+
 "Where to look" hints are framework-agnostic starting points; adapt to the
 target's stack. A keyword match is a *candidate*, not a Pass — open it and
 confirm the control is actually enforced at the right boundary.

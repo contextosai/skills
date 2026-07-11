@@ -1,0 +1,4 @@
+interface:
+  display_name: "Change Verification"
+  short_description: "Design proportional evidence for a change"
+  default_prompt: "Use $verify-change to verify this change with the smallest convincing set of checks."

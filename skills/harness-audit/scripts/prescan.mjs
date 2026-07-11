@@ -24,7 +24,7 @@ const IGNORE_DIRS = new Set([
 ])
 const TEXT_EXT = new Set([
   ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".rb", ".go", ".rs",
-  ".java", ".kt", ".cs", ".php", ".json", ".yaml", ".yml", ".toml", ".env",
+  ".java", ".kt", ".cs", ".php", ".json", ".yaml", ".yml", ".toml",
   ".md", ".mdx", ".txt", ".ini", ".cfg", ".sh",
 ])
 const MAX_FILE_BYTES = 512 * 1024
@@ -37,24 +37,29 @@ const SIGNALS = [
   { c: "2", label: "Autonomy boundary", re: /\b(autonomy|execute_with_approval|execute_directly|can_execute|action_class)\b/i },
   { c: "3", label: "Intent taxonomy", re: /\b(intent_id|intent_router|classify_intent|route_intent)\b/i },
   { c: "4", label: "Planner/executor split", re: /\b(planner|plan_and_execute|create_react_agent|StateGraph|plan_node|executor_node)\b/ },
-  { c: "5/6", label: "Context source registry / compiler", re: /\b(source_registry|compiled?_?context|build_prompt|assemble_context|context_pack)\b/i },
+  { c: "5", label: "Context source registry", re: /\b(source_registry|context_sources?|retriever_registry|data_sources?)\b/i },
+  { c: "6", label: "Context compiler", re: /\b(compiled?_?context|build_prompt|assemble_context|context_pack|source_hashes?)\b/i },
   { c: "7", label: "Grounding / citations", re: /\b(citation|citations|grounding|source_id|evidence_ref)\b/i },
   { c: "8", label: "Context budget / truncation", re: /\b(truncat|token_budget|max_tokens|context_window|trim_messages)\b/i },
-  { c: "9/10/11", label: "Memory layer", re: /\b(mem0|long_?term_?memory|memory_store|persist_memory|recall|supersede|consolidat)\b/i },
+  { c: "9", label: "Memory read policy", re: /\b(mem0|long_?term_?memory|memory_store|recall|memory_query|load_memory)\b/i },
+  { c: "10", label: "Memory write policy", re: /\b(persist_memory|save_memory|memory.*upsert|write_proposal|memory_ttl)\b/i },
+  { c: "11", label: "Memory contradiction handling", re: /\b(supersede|memory_conflict|resolve_conflict|consolidat|source_confidence)\b/i },
   { c: "12", label: "Policy engine (outside model)", re: /\b(opa|open_policy_agent|cedar|rego|policy_decision|policy_bundle|guardrail)\b/i },
-  { c: "13/14", label: "Data classification / privacy", re: /\b(classif|\bpii\b|redact|mask_pii|retention|gdpr|purpose_limitation)\b/i },
+  { c: "13", label: "Data classification", re: /\b(data_class|classif|\bpii\b|confidential|regulatory)\b/i },
+  { c: "14", label: "Privacy controls", re: /\b(redact|mask_pii|retention|gdpr|purpose_limitation|delete_user_data)\b/i },
   { c: "15", label: "Tool manifest", re: /(@tool\b|FunctionTool|StructuredTool|tool_registry|tools\s*[:=]\s*\[)/ },
   { c: "16", label: "Tool gateway / arg validation", re: /\b(tool_gateway|validate_args|tool_dispatch|before_tool|ToolExecutor)\b/i },
-  { c: "16b", label: "MCP", re: /\b(mcp|modelcontextprotocol|mcp_server)\b/i },
   { c: "17", label: "Tool risk class / side-effect", re: /\b(risk_class|side_effect|destructive|approval_mode|dangerous)\b/i },
   { c: "18", label: "Identity / authorization", re: /\b(rbac|abac|spiffe|oauth2?|oidc|scoped_token|authorize|principal)\b/i },
   { c: "19", label: "Secret handling / vault", re: /\b(vault|secret_manager|secrets_manager|keyvault)\b/i },
   { c: "20", label: "Network / sandbox controls", re: /\b(sandbox|egress|allowlist|firecracker|seccomp|network_policy|exec\()\b/i },
   { c: "21", label: "Human approval / HITL", re: /\b(human_in_the_loop|require_approval|HumanApproval|interrupt\(|approval_gate|await.*approv)/i },
   { c: "22", label: "Escalation / handoff", re: /\b(escalat|handoff|handoff_to|transfer_to_human)\b/i },
-  { c: "23/25", label: "State machine / durable execution", re: /\b(checkpoint|Temporal|workflow|StateGraph|resume|durable)\b/i },
+  { c: "23", label: "State machine", re: /\b(checkpoint|state_transition|event_log|StateGraph|current_state)\b/i },
+  { c: "25", label: "Durable execution", re: /\b(Temporal|durable|resume_by|workflow_id|resumable)\b/i },
   { c: "24", label: "Idempotency", re: /\b(idempoten|dedup|duplicate_detect|request_fingerprint)\b/i },
-  { c: "26/27", label: "Offline / trajectory evals", re: /\b(promptfoo|deepeval|ragas|braintrust|golden_set|regression_suite|trajectory)\b/i },
+  { c: "26", label: "Offline evals", re: /\b(promptfoo|deepeval|ragas|braintrust|golden_set|regression_suite|eval_dataset)\b/i },
+  { c: "27", label: "Trajectory evals", re: /\b(trajectory|expected_tools?|tool_sequence|resource_scope|tool_precision)\b/i },
   { c: "28", label: "Online validation / critic", re: /\b(critic|output_guardrail|validate_output|safety_score|moderation)\b/i },
   { c: "29", label: "Red-team coverage", re: /\b(red_?team|prompt_injection|jailbreak|adversarial)\b/i },
   { c: "30", label: "Observability / tracing", re: /\b(opentelemetry|start_as_current_span|get_tracer|langfuse|traceloop|arize|phoenix)\b/i },
@@ -76,6 +81,35 @@ const SIGNALS = [
 
 const hits = new Map(SIGNALS.map((s) => [s.label, []]))
 let filesScanned = 0
+let filesSkipped = 0
+
+if (!fs.existsSync(target)) {
+  process.stderr.write(`prescan: target does not exist: ${target}\n`)
+  process.exit(2)
+}
+if (!fs.statSync(target).isDirectory()) {
+  process.stderr.write(`prescan: target must be a directory: ${target}\n`)
+  process.exit(2)
+}
+
+function artifactKind(rel) {
+  const p = rel.toLowerCase()
+  if (/(^|\/)(prescan|scanner|lint|audit-rules?)\.[^/]+$/.test(p)) return "static-analysis lead"
+  if (/(^|\/)(test|tests|spec|specs|evals?|redteam|fixtures?)(\/|$)|\.(test|spec)\./.test(p)) return "test/eval"
+  if (/(^|\/)(traces?|logs?|runs?|telemetry)(\/|$)/.test(p)) return "trace/log"
+  if (/\.(md|mdx|txt)$/.test(p) || /(^|\/)(docs?|runbooks?)(\/|$)/.test(p)) return "docs/assertion"
+  if (/\.(ya?ml|json|toml|ini|cfg)$/.test(p) || /(^|\/)(config|policies|manifests?)(\/|$)/.test(p)) return "config/definition"
+  return "code/wiring"
+}
+
+function safeSnippet(line) {
+  return line
+    .replace(/\b(AKIA|ASIA)[A-Z0-9]{16}\b/g, "[REDACTED_AWS_KEY]")
+    .replace(/\b(sk-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{10,})\b/g, "[REDACTED_TOKEN]")
+    .replace(/\b(password|passwd|secret|api[_-]?key|access[_-]?token|authorization)\b(\s*[:=]\s*)["']?[^\s,"'}]+/ig, "$1$2[REDACTED]")
+    .trim()
+    .slice(0, 160)
+}
 
 function walk(dir) {
   if (filesScanned >= MAX_FILES) return
@@ -94,7 +128,11 @@ function walk(dir) {
     } else if (e.isFile()) {
       const ext = path.extname(e.name).toLowerCase()
       const isEnv = e.name.startsWith(".env")
-      if (!TEXT_EXT.has(ext) && !isEnv) continue
+      if (isEnv || /(^|\.)env(\.|$)/i.test(e.name) || /\.lock$/i.test(e.name)) {
+        filesSkipped++
+        continue
+      }
+      if (!TEXT_EXT.has(ext)) continue
       scanFile(full)
     }
   }
@@ -107,11 +145,19 @@ function scanFile(file) {
   } catch {
     return
   }
-  if (stat.size > MAX_FILE_BYTES) return
+  if (stat.size > MAX_FILE_BYTES) {
+    filesSkipped++
+    return
+  }
   let text
   try {
     text = fs.readFileSync(file, "utf8")
   } catch {
+    filesSkipped++
+    return
+  }
+  if (text.includes("\0")) {
+    filesSkipped++
     return
   }
   filesScanned++
@@ -124,7 +170,7 @@ function scanFile(file) {
       const arr = hits.get(s.label)
       if (arr.length >= MAX_HITS) continue
       if (s.re.test(line)) {
-        arr.push(`${rel}:${i + 1}: ${line.trim().slice(0, 160)}`)
+        arr.push({ ref: `${rel}:${i + 1}`, kind: artifactKind(rel), snippet: safeSnippet(line) })
       }
     }
   }
@@ -162,9 +208,11 @@ out.push(`# Harness Audit — prescan`)
 out.push("")
 out.push(`- **Target:** \`${target}\``)
 out.push(`- **Detected framework:** ${detectFramework()}`)
-const maHits = hits.get("Inter-agent communication policy").length
-out.push(`- **Topology:** ${maHits > 0 ? `likely multi-agent (${maHits} handoff/delegate signal(s)) — score #42/#43, treat the inter-agent channel as an audit surface` : "no multi-agent signal found — likely single-agent; mark #43 N/A if confirmed"}`)
+const maHits = hits.get("Inter-agent communication policy")
+const maRuntimeHits = maHits.filter((h) => !["docs/assertion", "static-analysis lead"].includes(h.kind)).length
+out.push(`- **Topology candidate:** ${maRuntimeHits > 0 ? `possible multi-agent (${maRuntimeHits} non-doc signal(s)); confirm from runtime graph before scoring #43` : "no non-doc multi-agent signal; confirm single-agent before marking #43 N/A"}`)
 out.push(`- **Files scanned:** ${filesScanned}${filesScanned >= MAX_FILES ? " (capped)" : ""}`)
+out.push(`- **Files skipped:** ${filesSkipped} (dotenv, lock, oversized, unreadable, or binary)`)
 out.push("")
 out.push(`> Candidate evidence only. A match is a lead, not a Pass — open each and`)
 out.push(`> confirm the control is enforced at the right boundary. Controls with NO`)
@@ -175,7 +223,7 @@ out.push(`## Candidate evidence found (${found.length} signals)`)
 out.push("")
 for (const s of found) {
   out.push(`### [${s.c}] ${s.label} — ${hits.get(s.label).length} hit(s)`)
-  for (const h of hits.get(s.label)) out.push(`- \`${h}\``)
+  for (const h of hits.get(s.label)) out.push(`- **${h.kind}:** \`${h.ref}\` — \`${h.snippet}\``)
   out.push("")
 }
 

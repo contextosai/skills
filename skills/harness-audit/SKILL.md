@@ -1,13 +1,14 @@
 ---
 name: harness-audit
 description: >-
-  Audit an AI agent's harness for production readiness by reading its ACTUAL
-  code, configs, and run traces — not a questionnaire. Scores 44 runtime
-  controls (grouped into the eight ContextOS harness properties) Pass/Partial/
-  Fail with file:line evidence, assigns a maturity band, and emits a prioritized
-  fix queue. Use when someone asks to audit / assess / production-readiness-check
-  an AI agent, agent harness, LangGraph / OpenAI Agents SDK / ADK / CrewAI /
-  custom agent, or asks "is my agent safe to ship / production-ready / governed".
+  Audit an AI agent harness for production readiness from repository code,
+  configuration, tests, and run traces. Score 44 runtime controls across eight
+  outcomes with artifact evidence, identify audit limitations, assign an
+  evidenced maturity band, make a launch decision, and produce a dependency-
+  ordered fix queue. Use for agent safety, governance, ship-readiness, control-
+  gap, or due-diligence reviews of LangGraph, OpenAI Agents SDK, Google ADK,
+  CrewAI, multi-agent, MCP-enabled, or custom agent systems. Do not use as a
+  questionnaire or as a substitute for a runtime penetration test.
 ---
 
 # Agent Harness Audit
@@ -27,7 +28,7 @@ available), score each control against that evidence, and hand back an action
 plan the team can execute. You are not here to be reassured; you are here to
 find what will break in production.
 
-## Inputs
+## Inputs and audit scope
 
 - **Target**: the path to the agent's repository (default: the current working
   directory). If the user names a different path, audit that.
@@ -39,6 +40,13 @@ find what will break in production.
   when it matters.
 - **Declared maturity band** (optional): ask the user, or infer and state your
   assumption. The band determines which failures block launch (see Maturity).
+
+Do not block on missing optional inputs. Default the target to the current
+directory, infer the intended band from real deployment signals, and label the
+result as an assumption. Record exclusions such as external policy services,
+managed gateways, unavailable traces, generated code, and inaccessible CI.
+An inaccessible surface is **Unverified**, not evidence of absence; map it to
+Fail for launch scoring and name the access needed to verify it.
 
 ## Protocol
 
@@ -59,6 +67,12 @@ multi-agent, controls #42 (outbound disclosure) and #43 (communication policy)
 are in scope and the inter-agent message channel is a first-class audit surface
 — coordination expands the risk surface. If single-agent, mark #43 N/A and say so.
 
+Build a short **surface map** before scoring: model entry points, context and
+memory paths, every tool dispatcher and side-effecting adapter, identity/policy
+boundaries, inter-agent channels, output boundary, trace sink, and eval/release
+path. Scope each control only after this map exists. Do not mark a generally
+applicable control N/A merely because its feature is absent; absence is Fail.
+
 ### 2. Prescan for evidence (≈3 min)
 
 Run the deterministic prescan to get a fast map of candidate evidence:
@@ -68,12 +82,30 @@ node "$SKILL_DIR/scripts/prescan.mjs" <target-path>
 ```
 
 (If Node is unavailable or the script errors, fall back to `rg`/`grep`
-manually using the search hints in the checklist.) The prescan only *locates*
+manually using the search hints in the checklist.) The prescan classifies hits
+by artifact type and only *locates*
 candidate evidence — it never decides Pass/Fail. **You** must open each hit and
 verify it actually enforces the control at the right boundary. A keyword match
-is not a control.
+is not a control. Prescan deliberately skips dotenv files and redacts likely
+secrets; never paste secret-bearing source or trace payloads into the report.
 
-### 3. Score the 44 controls
+### 3. Trace two representative paths
+
+If traces exist, select them deliberately:
+
+1. Choose one ordinary run that exercises the primary intent and tools.
+2. Choose one boundary run that exercises the highest-risk touched surface.
+3. Reconcile trace events against code/config versions. A trace from an unknown
+   release can demonstrate behavior but cannot prove the current release.
+4. Record trace IDs and timestamps; redact user content, credentials, and
+   sensitive tool arguments.
+
+If no boundary trace exists, do not manufacture one or execute risky tools.
+Score trace-dependent guarantees no higher than Partial from code/tests alone,
+and require a runtime re-audit. A fixture may prove deterministic logic; it
+does not prove production wiring.
+
+### 4. Score the 44 controls
 
 Open `reference/checklist.md`. It lists every control with: the audit question,
 minimum pass evidence, the immediate fail signal, severity, where to look, and
@@ -87,6 +119,12 @@ the ContextOS plane/doc that owns the remediation. For each control:
 - **Fail** — absent, unenforced, unverifiable, or prose-only. Say where you
   looked.
 
+Use the evidence-strength rules at the top of the checklist. For a Pass, cite
+the enforcement point and either a boundary test/trace or a declarative runtime
+binding that makes bypass impossible. Configuration alone does not prove it is
+loaded; a helper alone does not prove it is called. When evidence conflicts,
+use the weaker score and explain the conflict.
+
 Apply the **five-minute rule**: if you cannot find the evidence within ~5
 minutes of searching, score it **Fail**. A control that can't be found under
 pressure won't protect the system under pressure. Note it as "not found within
@@ -95,7 +133,7 @@ budget" rather than asserting it doesn't exist — but it still scores Fail.
 Severity (`P0`/`P1`/`P2`) comes from the checklist and is **independent** of the
 pass state — a P0 control that is `Partial` is still a launch blocker.
 
-### 4. Roll up and decide
+### 5. Check arithmetic and decide
 
 - Roll the 44 control scores into the **eight outcome groups** (context-aware,
   policy-governed, tool-controlled, validated, observable, reversible,
@@ -106,10 +144,15 @@ pass state — a P0 control that is `Partial` is still a launch blocker.
 - Apply the launch decision: **any P0 Fail/Partial blocks production** unless
   the agent is fully read-only, isolated from real users, and confined to a
   controlled beta.
+- Reconcile Pass + Partial + Fail + N/A to 44. Use N/A only where the checklist
+  explicitly permits it (#43 for a confirmed single-agent harness). Rollups
+  must reconcile to control detail. Do not invent a weighted aggregate score;
+  worst-severity gaps and evidence quality matter more than a percentage.
 
-### 5. Emit the report
+### 6. Emit the report
 
-Produce the scorecard using `reference/scorecard-template.md`. The report MUST
+Produce the scorecard using `reference/scorecard-template.md`. Include audit
+limitations and verdict confidence. The report MUST
 end with a **fix queue**: every gap gets an owner placeholder, severity, the
 concrete fix, the *expected evidence* that would flip it to Pass, and the
 ContextOS plane/doc to read. Order the queue by the dependency chain, not by
@@ -151,6 +194,12 @@ The band is not a label; it determines which failures block launch.
   where you looked. Never soften a P0 Fail into a suggestion.
 - **Don't fabricate.** If traces weren't provided, say the trace-dependent
   controls were scored from code only and flag them for a runtime re-audit.
+- **Separate existence, wiring, and behavior.** A dependency proves capability,
+  configuration proves intent, and runtime wiring plus a boundary test/trace
+  proves enforcement. Score the strongest complete chain, not its strongest
+  isolated artifact.
+- **Sample honestly.** Do not extrapolate one protected tool, route, tenant, or
+  role to all others. Partial is the correct score for incomplete coverage.
 
 ## What this audit is grounded in
 
