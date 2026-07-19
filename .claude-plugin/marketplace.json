@@ -26,7 +26,24 @@
       "skills": [
         "./skills/commit-message",
         "./skills/pr-description",
-        "./skills/readme-polish"
+        "./skills/readme-polish",
+        "./skills/x-twitter-source-packet"
+      ]
+    },
+    {
+      "name": "engineering-workflows",
+      "description": "Evidence-driven engineering workflows for repository orientation, planning, diagnosis, safe refactoring, schema evolution, review, verification, and incident triage.",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/diagnose-root-cause",
+        "./skills/evolve-schema-safely",
+        "./skills/plan-change",
+        "./skills/refactor-safely",
+        "./skills/repo-orient",
+        "./skills/review-change",
+        "./skills/triage-incident",
+        "./skills/verify-change"
       ]
     }
   ]

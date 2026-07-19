@@ -5,7 +5,7 @@
 
 Skills are folders of instructions, scripts, and resources that an agent loads
 dynamically to improve performance on specialized tasks. A skill teaches the
-agent how to complete a specific task in a repeatable way — writing a commit
+agent how to complete a specific task in a repeatable way - writing a commit
 message in your team's style, drafting a PR description, polishing docs, and so
 on.
 
@@ -15,9 +15,9 @@ working examples, or use the [`template`](./template) as a starting point.
 
 ## Repository layout
 
-- [`./skills`](./skills) — example skills you can use or learn from
-- [`./spec`](./spec) — the Agent Skills specification
-- [`./template`](./template) — a minimal skill template
+- [`./skills`](./skills) - example skills you can use or learn from
+- [`./spec`](./spec) - the Agent Skills specification
+- [`./template`](./template) - a minimal skill template
 
 ## Install in Claude Code
 
@@ -39,7 +39,13 @@ Or the example skills (commit messages, PR descriptions, README polish):
 /plugin install example-skills@contextosai-skills
 ```
 
-Once installed, invoke a skill just by mentioning the task — for example,
+Or the engineering workflows:
+
+```
+/plugin install engineering-workflows@contextosai-skills
+```
+
+Once installed, invoke a skill just by mentioning the task - for example,
 "audit my agent harness for production readiness" triggers `harness-audit`, and
 "write a commit message for my staged changes" triggers `commit-message`. You
 can also run `harness-audit` explicitly as `/harness-audit`.
@@ -66,8 +72,8 @@ Instructions the agent will follow when this skill is active.
 
 The frontmatter requires two fields:
 
-- `name` — a unique identifier (lowercase, hyphens for spaces)
-- `description` — what the skill does **and when to use it**; this is how the
+- `name` - a unique identifier (lowercase, hyphens for spaces)
+- `description` - what the skill does **and when to use it**; this is how the
   agent decides the skill is relevant, so cover both the *what* and the *when*
 
 See [`spec/agent-skills-spec.md`](./spec/agent-skills-spec.md) for the full
@@ -82,6 +88,15 @@ point.
 | [`commit-message`](./skills/commit-message) | Write a conventional git commit message from staged changes. |
 | [`pr-description`](./skills/pr-description) | Draft a PR title and description from a branch's commits and diff. |
 | [`readme-polish`](./skills/readme-polish) | Improve a README's clarity and structure without changing its meaning. |
+| [`x-twitter-source-packet`](./skills/x-twitter-source-packet) | Build a reviewed X/Twitter evidence packet before drafting, reporting, or approval-gated account actions. |
+| [`diagnose-root-cause`](./skills/diagnose-root-cause) | Diagnose failures through reproduction, competing hypotheses, and discriminating experiments. |
+| [`evolve-schema-safely`](./skills/evolve-schema-safely) | Plan compatible and reversible schema evolution with explicit migration gates. |
+| [`plan-change`](./skills/plan-change) | Produce an implementation-ready plan grounded in the actual repository. |
+| [`refactor-safely`](./skills/refactor-safely) | Restructure code while preserving explicit behavior invariants. |
+| [`repo-orient`](./skills/repo-orient) | Build an evidence-backed map of an unfamiliar repository. |
+| [`review-change`](./skills/review-change) | Review changes for concrete regressions across important boundaries. |
+| [`triage-incident`](./skills/triage-incident) | Triage incidents by reducing harm, preserving evidence, and coordinating mitigations. |
+| [`verify-change`](./skills/verify-change) | Verify changes with risk-based evidence tied to material claims. |
 
 ## Validating
 
@@ -94,7 +109,7 @@ node scripts/validate-skills.mjs
 
 ## Contributing
 
-Contributions are welcome — see [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the
+Contributions are welcome - see [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the
 skill format and the bar for inclusion, and please follow the
 [Code of Conduct](./CODE_OF_CONDUCT.md).
 

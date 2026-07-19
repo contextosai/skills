@@ -7,6 +7,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- `x-twitter-source-packet` skill for packaging reviewed X/Twitter evidence
+  before drafting, reporting, or approval-gated account actions.
+- Installable marketplace registration and README catalogue entries for the 8
+  engineering workflow skills added on `main`.
 - `SECURITY.md` with a private vulnerability-reporting policy.
 - `.github/CODEOWNERS` and Dependabot config for GitHub Actions updates.
 - Branch protection on `main` (PR + passing CI required, no force-push/deletion).
@@ -22,7 +26,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [1.1.0] - 2026-05-31
 
 ### Added
-- `harness-audit` skill — production-readiness audit for AI agent harnesses,
+- `harness-audit` skill - production-readiness audit for AI agent harnesses,
   scoring 40 runtime controls against real code with file:line evidence.
 - Repository governance: `LICENSE` (MIT), `CONTRIBUTING.md`,
   `CODE_OF_CONDUCT.md`, GitHub issue/PR templates.
