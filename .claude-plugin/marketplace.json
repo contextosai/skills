@@ -11,7 +11,7 @@
   "plugins": [
     {
       "name": "harness-audit",
-      "description": "Production-readiness audit for AI agent harnesses. Runs against your agent's real repo and traces, scores 44 runtime controls with file:line evidence, assigns a maturity band, and emits a prioritized fix queue. No artifact, no pass.",
+      "description": "Threat-model-driven production-readiness audit for AI agent harnesses. Maps reachable capabilities and trust boundaries, challenges critical assurance claims with code, tests, evaluations, and release-linked traces, makes a risk-tiered launch decision, and emits a focused fix queue.",
       "source": "./",
       "strict": false,
       "skills": [

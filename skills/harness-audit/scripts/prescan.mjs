@@ -1,87 +1,165 @@
 #!/usr/bin/env node
 /**
- * Harness Audit — deterministic prescan.
+ * Harness Audit prescan v2.
  *
- * Walks a target repository and locates CANDIDATE evidence for the 44 harness
- * controls, plus — more usefully — lists controls for which it found NO signal
- * at all (likely Fails worth confirming first). It never decides Pass/Fail:
- * a keyword match is a lead, not a control. The auditing agent must open each
- * hit and confirm the control is actually enforced at the right boundary.
+ * Builds a deterministic map of candidate capabilities, trust boundaries,
+ * assurance evidence, and bypass hotspots. It never assigns audit status.
  *
- * Usage:  node prescan.mjs [target-path]   (defaults to cwd)
- * Output: Markdown to stdout. Dependency-free (Node built-ins only).
+ * Usage: node prescan.mjs [target-path] [--json]
  */
 
 import fs from "node:fs"
 import path from "node:path"
 
-const target = path.resolve(process.argv[2] || process.cwd())
+const args = process.argv.slice(2)
+if (args.includes("--help") || args.includes("-h")) {
+  process.stdout.write("Usage: node prescan.mjs [target-path] [--json]\n")
+  process.exit(0)
+}
+const unknownFlags = args.filter((arg) => arg.startsWith("-") && arg !== "--json")
+if (unknownFlags.length) {
+  process.stderr.write(`prescan: unknown option: ${unknownFlags[0]}\n`)
+  process.exit(2)
+}
+const positional = args.filter((arg) => !arg.startsWith("-"))
+if (positional.length > 1) {
+  process.stderr.write("prescan: expected at most one target path\n")
+  process.exit(2)
+}
+
+const target = path.resolve(positional[0] || process.cwd())
+const jsonOutput = args.includes("--json")
 
 const IGNORE_DIRS = new Set([
-  "node_modules", ".git", ".next", "dist", "build", "out", "coverage",
-  ".venv", "venv", "__pycache__", ".turbo", ".cache", "vendor", ".idea",
-  ".pytest_cache", ".mypy_cache", "target", "bin", "obj",
+  ".git", ".next", ".turbo", ".cache", ".idea", ".pytest_cache",
+  ".mypy_cache", ".venv", "venv", "node_modules", "vendor", "dist",
+  "build", "out", "coverage", "target", "bin", "obj", "__pycache__",
 ])
-const TEXT_EXT = new Set([
-  ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".rb", ".go", ".rs",
-  ".java", ".kt", ".cs", ".php", ".json", ".yaml", ".yml", ".toml",
-  ".md", ".mdx", ".txt", ".ini", ".cfg", ".sh",
+const TEXT_EXTENSIONS = new Set([
+  ".c", ".cc", ".cfg", ".cjs", ".cpp", ".cs", ".go", ".h", ".hpp",
+  ".gradle", ".hcl", ".ini", ".java", ".js", ".json", ".jsx", ".kt",
+  ".md", ".mdx", ".mjs", ".mod", ".php", ".prompt", ".properties",
+  ".py", ".rb", ".rego", ".rs", ".sh", ".sql", ".tf", ".toml", ".ts",
+  ".tsx", ".txt", ".xml", ".yaml", ".yml",
 ])
+const TEXT_FILENAMES = new Set(["dockerfile", "gemfile", "makefile", "procfile"])
 const MAX_FILE_BYTES = 512 * 1024
-const MAX_FILES = 30000
-const MAX_HITS = 6
+const MAX_FILES = 30_000
+const MAX_HITS_PER_SIGNAL = 6
 
-// signal: control number/label + a high-signal regex + a noise note.
-const SIGNALS = [
-  { c: "1", label: "Agent charter / AgentSpec", re: /\b(agentspec|agent[_-]?charter|allowed_intents|denied_intents|autonomy[_-]?class)\b/i },
-  { c: "2", label: "Autonomy boundary", re: /\b(autonomy|execute_with_approval|execute_directly|can_execute|action_class)\b/i },
-  { c: "3", label: "Intent taxonomy", re: /\b(intent_id|intent_router|classify_intent|route_intent)\b/i },
-  { c: "4", label: "Planner/executor split", re: /\b(planner|plan_and_execute|create_react_agent|StateGraph|plan_node|executor_node)\b/ },
-  { c: "5", label: "Context source registry", re: /\b(source_registry|context_sources?|retriever_registry|data_sources?)\b/i },
-  { c: "6", label: "Context compiler", re: /\b(compiled?_?context|build_prompt|assemble_context|context_pack|source_hashes?)\b/i },
-  { c: "7", label: "Grounding / citations", re: /\b(citation|citations|grounding|source_id|evidence_ref)\b/i },
-  { c: "8", label: "Context budget / truncation", re: /\b(truncat|token_budget|max_tokens|context_window|trim_messages)\b/i },
-  { c: "9", label: "Memory read policy", re: /\b(mem0|long_?term_?memory|memory_store|recall|memory_query|load_memory)\b/i },
-  { c: "10", label: "Memory write policy", re: /\b(persist_memory|save_memory|memory.*upsert|write_proposal|memory_ttl)\b/i },
-  { c: "11", label: "Memory contradiction handling", re: /\b(supersede|memory_conflict|resolve_conflict|consolidat|source_confidence)\b/i },
-  { c: "12", label: "Policy engine (outside model)", re: /\b(opa|open_policy_agent|cedar|rego|policy_decision|policy_bundle|guardrail)\b/i },
-  { c: "13", label: "Data classification", re: /\b(data_class|classif|\bpii\b|confidential|regulatory)\b/i },
-  { c: "14", label: "Privacy controls", re: /\b(redact|mask_pii|retention|gdpr|purpose_limitation|delete_user_data)\b/i },
-  { c: "15", label: "Tool manifest", re: /(@tool\b|FunctionTool|StructuredTool|tool_registry|tools\s*[:=]\s*\[)/ },
-  { c: "16", label: "Tool gateway / arg validation", re: /\b(tool_gateway|validate_args|tool_dispatch|before_tool|ToolExecutor)\b/i },
-  { c: "17", label: "Tool risk class / side-effect", re: /\b(risk_class|side_effect|destructive|approval_mode|dangerous)\b/i },
-  { c: "18", label: "Identity / authorization", re: /\b(rbac|abac|spiffe|oauth2?|oidc|scoped_token|authorize|principal)\b/i },
-  { c: "19", label: "Secret handling / vault", re: /\b(vault|secret_manager|secrets_manager|keyvault)\b/i },
-  { c: "20", label: "Network / sandbox controls", re: /\b(sandbox|egress|allowlist|firecracker|seccomp|network_policy|exec\()\b/i },
-  { c: "21", label: "Human approval / HITL", re: /\b(human_in_the_loop|require_approval|HumanApproval|interrupt\(|approval_gate|await.*approv)/i },
-  { c: "22", label: "Escalation / handoff", re: /\b(escalat|handoff|handoff_to|transfer_to_human)\b/i },
-  { c: "23", label: "State machine", re: /\b(checkpoint|state_transition|event_log|StateGraph|current_state)\b/i },
-  { c: "25", label: "Durable execution", re: /\b(Temporal|durable|resume_by|workflow_id|resumable)\b/i },
-  { c: "24", label: "Idempotency", re: /\b(idempoten|dedup|duplicate_detect|request_fingerprint)\b/i },
-  { c: "26", label: "Offline evals", re: /\b(promptfoo|deepeval|ragas|braintrust|golden_set|regression_suite|eval_dataset)\b/i },
-  { c: "27", label: "Trajectory evals", re: /\b(trajectory|expected_tools?|tool_sequence|resource_scope|tool_precision)\b/i },
-  { c: "28", label: "Online validation / critic", re: /\b(critic|output_guardrail|validate_output|safety_score|moderation)\b/i },
-  { c: "29", label: "Red-team coverage", re: /\b(red_?team|prompt_injection|jailbreak|adversarial)\b/i },
-  { c: "30", label: "Observability / tracing", re: /\b(opentelemetry|start_as_current_span|get_tracer|langfuse|traceloop|arize|phoenix)\b/i },
-  { c: "31", label: "Correlated telemetry IDs", re: /\b(trace_id|run_id|session_id|correlation_id|tool_call_id)\b/ },
-  { c: "32", label: "Cost / latency / loop guards", re: /\b(max_iterations|max_steps|recursion_limit|timeout|token_budget|cost_cents)\b/i },
-  { c: "33", label: "Model routing / fallback model", re: /\b(model_router|fallback_model|llm_router|provider_fallback|ai_gateway)\b/i },
-  { c: "34", label: "Fallback behavior", re: /\b(fallback|degrade|retry|backoff)\b/i },
-  { c: "35", label: "Release tuple / versioning", re: /\b(release_tuple|prompt_version|pack_version|model_version|version_manifest)\b/i },
-  { c: "36", label: "Replayability", re: /\b(replay|replay_bundle|pinned_inputs|snapshot_hash|reconstruct)\b/i },
-  { c: "37", label: "Rollback / compensation / kill switch", re: /\b(rollback|compensat|reversal|kill_switch|feature_flag)\b/i },
-  { c: "38", label: "Incident response", re: /\b(incident|runbook|oncall|on_call|postmortem|severity_matrix)\b/i },
-  { c: "39", label: "Business measurement", re: /\b(csat|deflection|conversion|task_success|business_metric)\b/i },
-  { c: "40", label: "Continuous improvement loop", re: /\b(improvement_loop|promotion_gate|correction|proposal_review|promote)\b/i },
-  { c: "41", label: "Resource/object scope binding", re: /\b(row_level_security|\brls\b|tenant_id|owner_id|authorize_resource|scope_check|belongs_to|ownership|is_authorized_for)\b/i },
-  { c: "42", label: "Outbound disclosure / egress redaction", re: /\b(redact_output|sanitize_output|scrub|egress_filter|minimi[sz]e|data_leak|leak_check|filter_response)\b/i },
-  { c: "43", label: "Inter-agent communication policy", re: /\b(handoff|delegate_to|transfer_to|sub_?agent|swarm|communication_policy|allowed_recipients|agent_graph|can_handoff)\b/i },
-  { c: "44", label: "Honest failure under tool error", re: /\b(on_tool_error|tool_error|acknowledge_failure|no_fabricat|honest|fallback_on_error|surface_error)\b/i },
+const CAPABILITIES = [
+  {
+    id: "M1", label: "Untrusted retrieval and content",
+    detail: "External documents, web content, messages, uploads, or tool output may enter model context.",
+    re: /\b(retriev|rag\b|vector[_-]?(store|search)|web[_-]?(search|fetch)|browser|scrape|crawl|user[_-]?upload|attachment|tool[_-]?(result|output)|mcp)\b/i,
+  },
+  {
+    id: "M2", label: "Persistent memory",
+    detail: "Cross-session or durable agent memory may be read, written, or deleted.",
+    re: /\b(long[_-]?term[_-]?memory|memory[_-]?(store|write|read|query)|recall|remember|persist[_-]?memory|save[_-]?memory|memory\.(upsert|add|delete))\b/i,
+  },
+  {
+    id: "M3", label: "Side effects and outbound actions",
+    detail: "Tools may mutate external state or communicate outside the harness.",
+    re: /\b(send[_-]?(email|message)|publish|post[_-]?message|create[_-]?(ticket|order|booking)|update[_-]?(record|account)|delete[_-]?(record|file)|refund|payment|transfer|cancel[_-]?(order|booking)|side[_-]?effect|write[_-]?tool)\b/i,
+  },
+  {
+    id: "M4", label: "General-purpose compute and network",
+    detail: "The agent may execute code, operate a browser/computer, broadly mutate files, or influence network destinations.",
+    re: /\b(computer[_-]?use|browser[_-]?use|playwright|puppeteer|selenium|shell[_-]?tool|code[_-]?(exec|interpreter)|subprocess|child_process|execFile|spawn\(|fetch\(|axios\.|requests\.|httpx\.|filesystem|writeFile)\b/i,
+  },
+  {
+    id: "M5", label: "Sensitive or multi-tenant data",
+    detail: "Sensitive, identity-bound, or tenant-scoped data may be reachable.",
+    re: /\b(pii|phi\b|pci\b|confidential|sensitive|tenant[_-]?id|organization[_-]?id|customer[_-]?id|account[_-]?id|row[_-]?level[_-]?security|\brls\b|data[_-]?class)\b/i,
+  },
+  {
+    id: "M6", label: "Multi-agent and delegation",
+    detail: "Agents may delegate, hand off, spawn peers, or exchange context.",
+    re: /\b(sub[_-]?agent|multi[_-]?agent|handoff|delegate[_-]?to|transfer[_-]?to|spawn[_-]?agent|agent[_-]?graph|swarm|peer[_-]?agent|a2a)\b/i,
+  },
+  {
+    id: "M7", label: "Human approval",
+    detail: "A human may authorize, edit, or supervise an action.",
+    re: /\b(require[_-]?approval|approval[_-]?(gate|request|decision)|human[_-]?(approval|in[_-]?the[_-]?loop)|interrupt\(|approver|await.*approv)\b/i,
+  },
+  {
+    id: "M8", label: "Long-running or unattended operation",
+    detail: "Runs may persist, resume, recur, retry, or operate asynchronously.",
+    re: /\b(checkpoint|resume[_-]?(run|workflow)|workflow[_-]?id|durable|temporal|cron\b|schedule[_-]?job|background[_-]?worker|retry[_-]?(queue|policy)|lease[_-]?id)\b/i,
+  },
 ]
 
-const hits = new Map(SIGNALS.map((s) => [s.label, []]))
-let filesScanned = 0
-let filesSkipped = 0
+const SURFACES = [
+  { id: "B1", label: "Principal and entry points", re: /\b(authenticated[_-]?user|principal|user[_-]?id|session[_-]?id|request[_-]?handler|route\(|endpoint|webhook|cli\b)\b/i },
+  { id: "B2", label: "Model and prompt assembly", re: /\b(responses\.create|chat\.completions|generateContent|model\.invoke|agent\.run|system[_-]?prompt|build[_-]?prompt|assemble[_-]?context|messages\s*[:=])\b/i },
+  { id: "B3", label: "Tool and delegation dispatch", re: /\b(tool[_-]?(dispatch|execute|gateway|registry|call)|function[_-]?call|mcp[_-]?(server|client)|handoff|delegate|transfer[_-]?to)\b/i },
+  { id: "B4", label: "Policy, identity, and approval", re: /\b(authori[sz]e|policy[_-]?(decision|check|engine)|rbac|abac|cedar|rego\b|opa\b|scope[_-]?check|require[_-]?approval|approver)\b/i },
+  { id: "B5", label: "Context, retrieval, and memory", re: /\b(retriev|vector[_-]?store|context[_-]?(pack|source|compiler)|memory[_-]?(store|write|read)|recall|embedding)\b/i },
+  { id: "B6", label: "External sinks and state", re: /\b(database|repository|storage|send[_-]?(email|message)|publish|payment|refund|writeFile|fetch\(|axios\.|requests\.|tool[_-]?result)\b/i },
+  { id: "B7", label: "Telemetry and release", re: /\b(trace[_-]?id|span[_-]?id|run[_-]?id|opentelemetry|audit[_-]?log|release[_-]?(tuple|manifest)|prompt[_-]?version|policy[_-]?version|model[_-]?version)\b/i },
+  { id: "B8", label: "Evaluation and recovery", re: /\b(boundary[_-]?test|adversarial|red[_-]?team|prompt[_-]?injection|eval[_-]?(suite|dataset)|state[_-]?diff|rollback|compensat|kill[_-]?switch|fault[_-]?inject)\b/i },
+]
+
+const ASSURANCE_LEADS = [
+  { id: "C1", label: "Authority and intent", re: /\b(principal|delegat|allowed[_-]?intent|intent[_-]?id|scope[_-]?check|clarif|consent|freshness)\b/i },
+  { id: "C2", label: "Complete mediation", re: /\b(tool[_-]?gateway|before[_-]?tool|policy[_-]?decision|validate[_-]?(args|tool)|authori[sz]e[_-]?(resource|action)|reference[_-]?monitor)\b/i },
+  { id: "C3", label: "Trust separation", re: /\b(untrusted|prompt[_-]?injection|instruction[_-]?hierarchy|source[_-]?provenance|trust[_-]?(label|level)|taint|canary)\b/i },
+  { id: "C4", label: "Information and state lifecycle", re: /\b(data[_-]?class|purpose[_-]?limitation|retention|redact|tenant[_-]?id|memory[_-]?(ttl|write|delete)|selective[_-]?delete|forget)\b/i },
+  { id: "C5", label: "Outcome integrity", re: /\b(state[_-]?diff|verify[_-]?(outcome|result)|tool[_-]?error|partial[_-]?failure|honest[_-]?failure|grounding|evidence[_-]?ref)\b/i },
+  { id: "C6", label: "Containment and recovery", re: /\b(idempoten|dedup|timeout|max[_-]?(steps|iterations)|budget|sandbox|egress|compensat|rollback|kill[_-]?switch|circuit[_-]?breaker)\b/i },
+  { id: "C7", label: "Accountability and release integrity", re: /\b(trace[_-]?id|audit[_-]?log|release[_-]?(tuple|manifest)|prompt[_-]?version|policy[_-]?version|tool[_-]?version|tamper[_-]?evident|correlation[_-]?id)\b/i },
+  { id: "C8", label: "Evaluation and change governance", re: /\b(golden[_-]?set|eval[_-]?(suite|dataset)|red[_-]?team|adversarial|pass\^k|attack[_-]?success|promotion[_-]?gate|regression|llm[_-]?judge|human[_-]?label)\b/i },
+]
+
+const HOTSPOTS = [
+  {
+    id: "H1", label: "General-purpose execution primitive",
+    detail: "Confirm that model-controlled input cannot reach shell, eval, process spawn, or unrestricted code execution.",
+    re: /\b(eval\(|exec\(|execSync\(|spawn\(|subprocess\.(run|Popen|call)|os\.system\(|shell\s*[:=]\s*true|code[_-]?interpreter)\b/i,
+  },
+  {
+    id: "H2", label: "Dynamic network destination",
+    detail: "Confirm URL/host validation, DNS/IP controls, redirect handling, and egress policy before model-influenced requests.",
+    re: /\b(fetch|axios\.(get|post|request)|requests\.(get|post|request)|httpx\.(get|post|request))\s*\(\s*[A-Za-z_$][\w.$\[\]-]*/i,
+  },
+  {
+    id: "H3", label: "Broad or wildcard authority",
+    detail: "Confirm wildcard grants and broad roles cannot reach sensitive resources or tools.",
+    re: /(allowed_(tools|actions|resources)|permissions?|scopes?|resources?)\s*[:=]\s*[\[{'"\s]*(\*|all\b|admin\b)/i,
+  },
+  {
+    id: "H4", label: "Credential near model, prompt, or log path",
+    detail: "Confirm the secret is injected only into the adapter and never serialized into model-visible or logged data.",
+    re: /\b(api[_-]?key|access[_-]?token|client[_-]?secret|authorization)\b.*\b(prompt|messages|context|trace|log|json\.stringify)/i,
+  },
+  {
+    id: "H5", label: "Persistent memory write",
+    detail: "Confirm source, purpose, tenant, sensitivity, consent, deduplication, and later repair are enforced before persistence.",
+    re: /\b(memory|memories)\.(add|save|write|upsert|create)|\b(save|persist|write|upsert)[_-]?memory\b/i,
+  },
+  {
+    id: "H6", label: "Sensitive payload logging",
+    detail: "Confirm structured redaction occurs before trace/log export and raw tool arguments are access-controlled.",
+    re: /\b(console\.log|logger\.(debug|info|warn|error)|logging\.(debug|info|warning|error)|span\.setAttribute)\s*\([^\n]*(prompt|messages|tool[_-]?(args|arguments)|authorization|token)/i,
+  },
+  {
+    id: "H7", label: "Side effect without nearby idempotency signal",
+    detail: "Inspect retries and partial failures; a line-level lead cannot prove idempotency is absent.",
+    re: /\b(send[_-]?(email|message)|create[_-]?(order|booking|ticket)|refund|payment|transfer|delete[_-]?(record|file))\s*\(/i,
+  },
+]
+
+const FRAMEWORKS = [
+  ["LangGraph", /\blanggraph\b/i],
+  ["LangChain", /\blangchain\b/i],
+  ["OpenAI Agents SDK", /\b(openai-agents|openai_agents|agents-sdk)\b/i],
+  ["Google ADK", /\b(google-adk|google_adk)\b/i],
+  ["CrewAI", /\bcrewai\b/i],
+  ["Semantic Kernel", /\b(semantic-kernel|semantic_kernel)\b/i],
+  ["Mastra", /\bmastra\b/i],
+  ["AutoGen", /\b(autogen|pyautogen)\b/i],
+]
 
 if (!fs.existsSync(target)) {
   process.stderr.write(`prescan: target does not exist: ${target}\n`)
@@ -92,49 +170,45 @@ if (!fs.statSync(target).isDirectory()) {
   process.exit(2)
 }
 
-function artifactKind(rel) {
-  const p = rel.toLowerCase()
-  if (/(^|\/)(prescan|scanner|lint|audit-rules?)\.[^/]+$/.test(p)) return "static-analysis lead"
-  if (/(^|\/)(test|tests|spec|specs|evals?|redteam|fixtures?)(\/|$)|\.(test|spec)\./.test(p)) return "test/eval"
-  if (/(^|\/)(traces?|logs?|runs?|telemetry)(\/|$)/.test(p)) return "trace/log"
-  if (/\.(md|mdx|txt)$/.test(p) || /(^|\/)(docs?|runbooks?)(\/|$)/.test(p)) return "docs/assertion"
-  if (/\.(ya?ml|json|toml|ini|cfg)$/.test(p) || /(^|\/)(config|policies|manifests?)(\/|$)/.test(p)) return "config/definition"
+function newHitMap(signals) {
+  return new Map(signals.map((signal) => [signal.id, []]))
+}
+
+const capabilityHits = newHitMap(CAPABILITIES)
+const surfaceHits = newHitMap(SURFACES)
+const assuranceHits = newHitMap(ASSURANCE_LEADS)
+const hotspotHits = newHitMap(HOTSPOTS)
+const manifestText = []
+let filesScanned = 0
+let filesSkipped = 0
+let scanCapped = false
+
+function artifactKind(relativePath) {
+  const value = relativePath.toLowerCase()
+  if (/(^|\/)(prescan|scanner|audit-rules?|static-analysis)\.[^/]+$/.test(value)) return "static-analysis lead"
+  if (/(^|\/)(test|tests|spec|specs|eval|evals|redteam|fixtures?)(\/|$)|\.(test|spec)\./.test(value)) return "test/eval"
+  if (/(^|\/)(trace|traces|logs|runs|telemetry|incidents?)(\/|$)/.test(value)) return "trace/incident"
+  if (/(^|\/)(deploy|deployment|infra|terraform|k8s|helm|policies|manifests?)(\/|$)/.test(value)) return "deployment/policy"
+  if (/\.(md|mdx|txt)$/.test(value) || /(^|\/)(docs?|runbooks?)(\/|$)/.test(value)) return "docs/assertion"
+  if (/\.(ya?ml|json|toml|ini|cfg|rego)$/.test(value) || /(^|\/)(config)(\/|$)/.test(value)) return "config/definition"
   return "code/wiring"
 }
 
 function safeSnippet(line) {
   return line
     .replace(/\b(AKIA|ASIA)[A-Z0-9]{16}\b/g, "[REDACTED_AWS_KEY]")
-    .replace(/\b(sk-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{10,})\b/g, "[REDACTED_TOKEN]")
-    .replace(/\b(password|passwd|secret|api[_-]?key|access[_-]?token|authorization)\b(\s*[:=]\s*)["']?[^\s,"'}]+/ig, "$1$2[REDACTED]")
+    .replace(/\b(sk-[A-Za-z0-9_-]{12,}|gh[pousr]_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{10,})\b/g, "[REDACTED_TOKEN]")
+    .replace(/\b(password|passwd|secret|api[_-]?key|access[_-]?token|client[_-]?secret|authorization)\b(\s*[:=]\s*)["']?[^\s,"'}]+/ig, "$1$2[REDACTED]")
+    .replace(/[\t ]+/g, " ")
     .trim()
-    .slice(0, 160)
+    .slice(0, 180)
 }
 
-function walk(dir) {
-  if (filesScanned >= MAX_FILES) return
-  let entries
-  try {
-    entries = fs.readdirSync(dir, { withFileTypes: true })
-  } catch {
-    return
-  }
-  for (const e of entries) {
-    if (filesScanned >= MAX_FILES) return
-    const full = path.join(dir, e.name)
-    if (e.isDirectory()) {
-      if (IGNORE_DIRS.has(e.name) || e.name.startsWith(".") && e.name !== ".github") continue
-      walk(full)
-    } else if (e.isFile()) {
-      const ext = path.extname(e.name).toLowerCase()
-      const isEnv = e.name.startsWith(".env")
-      if (isEnv || /(^|\.)env(\.|$)/i.test(e.name) || /\.lock$/i.test(e.name)) {
-        filesSkipped++
-        continue
-      }
-      if (!TEXT_EXT.has(ext)) continue
-      scanFile(full)
-    }
+function recordSignals(signals, hitMap, line, reference, kind) {
+  for (const signal of signals) {
+    const hits = hitMap.get(signal.id)
+    if (hits.length >= MAX_HITS_PER_SIGNAL || !signal.re.test(line)) continue
+    hits.push({ reference, kind, snippet: safeSnippet(line) })
   }
 }
 
@@ -143,97 +217,157 @@ function scanFile(file) {
   try {
     stat = fs.statSync(file)
   } catch {
+    filesSkipped++
     return
   }
   if (stat.size > MAX_FILE_BYTES) {
     filesSkipped++
     return
   }
-  let text
+
+  let contents
   try {
-    text = fs.readFileSync(file, "utf8")
+    contents = fs.readFileSync(file, "utf8")
   } catch {
     filesSkipped++
     return
   }
-  if (text.includes("\0")) {
+  if (contents.includes("\0")) {
     filesSkipped++
     return
   }
+
   filesScanned++
-  const rel = path.relative(target, file)
-  const lines = text.split("\n")
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-    if (line.length > 600) continue
-    for (const s of SIGNALS) {
-      const arr = hits.get(s.label)
-      if (arr.length >= MAX_HITS) continue
-      if (s.re.test(line)) {
-        arr.push({ ref: `${rel}:${i + 1}`, kind: artifactKind(rel), snippet: safeSnippet(line) })
-      }
-    }
+  const relativePath = path.relative(target, file) || path.basename(file)
+  const base = path.basename(file).toLowerCase()
+  if (["package.json", "pyproject.toml", "requirements.txt", "go.mod", "cargo.toml"].includes(base)) {
+    manifestText.push(contents)
+  }
+  const kind = artifactKind(relativePath)
+  const lines = contents.split("\n")
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index]
+    if (line.length > 800) continue
+    const reference = `${relativePath}:${index + 1}`
+    recordSignals(CAPABILITIES, capabilityHits, line, reference, kind)
+    recordSignals(SURFACES, surfaceHits, line, reference, kind)
+    recordSignals(ASSURANCE_LEADS, assuranceHits, line, reference, kind)
+    recordSignals(HOTSPOTS, hotspotHits, line, reference, kind)
   }
 }
 
-function detectFramework() {
-  const reads = (p) => {
-    try {
-      return fs.readFileSync(path.join(target, p), "utf8")
-    } catch {
-      return ""
-    }
+function walk(directory) {
+  if (filesScanned >= MAX_FILES) {
+    scanCapped = true
+    return
   }
-  const blob = (reads("package.json") + reads("pyproject.toml") + reads("requirements.txt")).toLowerCase()
-  const fw = []
-  if (/langgraph/.test(blob)) fw.push("LangGraph")
-  if (/langchain/.test(blob)) fw.push("LangChain")
-  if (/openai-agents|openai_agents|agents-sdk/.test(blob)) fw.push("OpenAI Agents SDK")
-  if (/google-adk|google_adk|\badk\b/.test(blob)) fw.push("Google ADK")
-  if (/crewai/.test(blob)) fw.push("CrewAI")
-  if (/semantic-kernel|semantic_kernel/.test(blob)) fw.push("Semantic Kernel")
-  if (/mastra/.test(blob)) fw.push("Mastra")
-  if (/autogen/.test(blob)) fw.push("AutoGen")
-  return fw.length ? fw.join(", ") : "unknown / custom"
+  let entries
+  try {
+    entries = fs.readdirSync(directory, { withFileTypes: true })
+  } catch {
+    filesSkipped++
+    return
+  }
+  entries.sort((a, b) => a.name.localeCompare(b.name))
+  for (const entry of entries) {
+    if (filesScanned >= MAX_FILES) {
+      scanCapped = true
+      return
+    }
+    if (entry.isSymbolicLink()) {
+      filesSkipped++
+      continue
+    }
+    const fullPath = path.join(directory, entry.name)
+    if (entry.isDirectory()) {
+      if (IGNORE_DIRS.has(entry.name) || (entry.name.startsWith(".") && entry.name !== ".github")) continue
+      walk(fullPath)
+      continue
+    }
+    if (!entry.isFile()) continue
+    const lowerName = entry.name.toLowerCase()
+    const extension = path.extname(lowerName)
+    if (lowerName.startsWith(".env") || /(^|\.)env(\.|$)/i.test(lowerName) || lowerName.endsWith(".lock")) {
+      filesSkipped++
+      continue
+    }
+    if (!TEXT_EXTENSIONS.has(extension) && !TEXT_FILENAMES.has(lowerName)) continue
+    scanFile(fullPath)
+  }
 }
 
-// ── Run ──
+function materialize(signals, hitMap) {
+  return signals.map((signal) => ({
+    id: signal.id,
+    label: signal.label,
+    ...(signal.detail ? { detail: signal.detail } : {}),
+    hits: hitMap.get(signal.id),
+  }))
+}
+
 walk(target)
 
-const found = SIGNALS.filter((s) => hits.get(s.label).length > 0)
-const missing = SIGNALS.filter((s) => hits.get(s.label).length === 0)
-
-const out = []
-out.push(`# Harness Audit — prescan`)
-out.push("")
-out.push(`- **Target:** \`${target}\``)
-out.push(`- **Detected framework:** ${detectFramework()}`)
-const maHits = hits.get("Inter-agent communication policy")
-const maRuntimeHits = maHits.filter((h) => !["docs/assertion", "static-analysis lead"].includes(h.kind)).length
-out.push(`- **Topology candidate:** ${maRuntimeHits > 0 ? `possible multi-agent (${maRuntimeHits} non-doc signal(s)); confirm from runtime graph before scoring #43` : "no non-doc multi-agent signal; confirm single-agent before marking #43 N/A"}`)
-out.push(`- **Files scanned:** ${filesScanned}${filesScanned >= MAX_FILES ? " (capped)" : ""}`)
-out.push(`- **Files skipped:** ${filesSkipped} (dotenv, lock, oversized, unreadable, or binary)`)
-out.push("")
-out.push(`> Candidate evidence only. A match is a lead, not a Pass — open each and`)
-out.push(`> confirm the control is enforced at the right boundary. Controls with NO`)
-out.push(`> signal are listed last; treat them as likely Fails to confirm first.`)
-out.push("")
-
-out.push(`## Candidate evidence found (${found.length} signals)`)
-out.push("")
-for (const s of found) {
-  out.push(`### [${s.c}] ${s.label} — ${hits.get(s.label).length} hit(s)`)
-  for (const h of hits.get(s.label)) out.push(`- **${h.kind}:** \`${h.ref}\` — \`${h.snippet}\``)
-  out.push("")
+const manifestBlob = manifestText.join("\n")
+const frameworks = FRAMEWORKS.filter(([, regex]) => regex.test(manifestBlob)).map(([label]) => label)
+const result = {
+  schemaVersion: 2,
+  target,
+  detectedFrameworks: frameworks.length ? frameworks : ["Unknown or custom"],
+  stats: { filesScanned, filesSkipped, scanCapped },
+  capabilities: materialize(CAPABILITIES, capabilityHits),
+  surfaces: materialize(SURFACES, surfaceHits),
+  assuranceLeads: materialize(ASSURANCE_LEADS, assuranceHits),
+  hotspots: materialize(HOTSPOTS, hotspotHits),
 }
 
-out.push(`## No signal found — confirm these first (${missing.length} signals)`)
-out.push("")
-out.push(`Likely Fails. The prescan found no candidate evidence for:`)
-out.push("")
-for (const s of missing) out.push(`- **[${s.c}] ${s.label}**`)
-out.push("")
-out.push(`---`)
-out.push(`Next: open \`reference/checklist.md\` and score all 44 controls. No artifact, no pass.`)
+if (jsonOutput) {
+  process.stdout.write(`${JSON.stringify(result, null, 2)}\n`)
+  process.exit(0)
+}
 
-process.stdout.write(out.join("\n") + "\n")
+function emitSignalSection(output, title, entries, emptyText) {
+  output.push(`## ${title}`, "")
+  const found = entries.filter((entry) => entry.hits.length)
+  if (!found.length) {
+    output.push(emptyText, "")
+    return
+  }
+  for (const entry of found) {
+    output.push(`### ${entry.id} — ${entry.label}`)
+    if (entry.detail) output.push(entry.detail)
+    output.push("")
+    for (const hit of entry.hits) {
+      output.push(`- **${hit.kind}:** \`${hit.reference}\` — \`${hit.snippet}\``)
+    }
+    output.push("")
+  }
+}
+
+const output = []
+output.push("# Harness Audit — prescan v2", "")
+output.push(`- **Target:** \`${target}\``)
+output.push(`- **Detected framework:** ${result.detectedFrameworks.join(", ")}`)
+output.push(`- **Files scanned:** ${filesScanned}${scanCapped ? " (capped)" : ""}`)
+output.push(`- **Files skipped:** ${filesSkipped} (dotenv, lock, oversized, binary, symlink, ignored, or unreadable)`)
+output.push("")
+output.push("> Candidate evidence only. A hit does not establish applicability, a control, or a finding. Open the artifact, trace the real entry-to-sink path, and search for bypasses.", "")
+
+emitSignalSection(output, "Candidate capability profile", result.capabilities, "No capability signals found. Confirm manually from entry points and deployment configuration.")
+emitSignalSection(output, "Boundary surface leads", result.surfaces, "No boundary signals found. Build the surface map manually.")
+emitSignalSection(output, "Assurance evidence leads", result.assuranceLeads, "No assurance signals found. This is not proof that safeguards are absent.")
+emitSignalSection(output, "Potential bypass hotspots", result.hotspots, "No hotspot patterns found. Manual bypass analysis is still required.")
+
+const missingCapabilities = result.capabilities.filter((entry) => !entry.hits.length)
+const missingClaims = result.assuranceLeads.filter((entry) => !entry.hits.length)
+output.push("## No-signal areas to resolve", "")
+output.push("No signal means **unknown**, not N/A or Ineffective. Establish reachability and inspect non-code controls before judging.", "")
+if (missingCapabilities.length) {
+  output.push(`- **Capability modules:** ${missingCapabilities.map((entry) => `${entry.id} ${entry.label}`).join("; ")}`)
+}
+if (missingClaims.length) {
+  output.push(`- **Core claims:** ${missingClaims.map((entry) => `${entry.id} ${entry.label}`).join("; ")}`)
+}
+output.push("")
+output.push("---", "Next: read `reference/audit-rubric.md`, map reachable edges, derive critical abuse stories, and build claim evidence. No causal evidence, no assurance.")
+
+process.stdout.write(`${output.join("\n")}\n`)

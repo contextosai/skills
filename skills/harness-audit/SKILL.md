@@ -1,209 +1,230 @@
 ---
 name: harness-audit
 description: >-
-  Audit an AI agent harness for production readiness from repository code,
-  configuration, tests, and run traces. Score 44 runtime controls across eight
-  outcomes with artifact evidence, identify audit limitations, assign an
-  evidenced maturity band, make a launch decision, and produce a dependency-
-  ordered fix queue. Use for agent safety, governance, ship-readiness, control-
-  gap, or due-diligence reviews of LangGraph, OpenAI Agents SDK, Google ADK,
-  CrewAI, multi-agent, MCP-enabled, or custom agent systems. Do not use as a
-  questionnaire or as a substitute for a runtime penetration test.
+  Audit an AI agent harness as a threat-model-driven assurance case using
+  repository code, configuration, tests, evaluation results, and release-linked
+  traces. Map capabilities and trust boundaries, challenge critical safety and
+  reliability claims, assess control effectiveness separately from evidence
+  strength and confidence, make a risk-tiered launch decision, and produce a
+  small dependency-ordered fix queue. Use for production-readiness, agent
+  security, governance, control-gap, architecture-risk, or due-diligence reviews
+  of tool-using, RAG, memory-enabled, browser/computer-use, MCP, or multi-agent
+  systems. Do not use as a questionnaire or claim that a code-only review is a
+  runtime penetration test.
 ---
 
 # Agent Harness Audit
 
-You are running a **production readiness audit** on an AI agent's harness. The
-governing rule is the one thing that makes this audit worth anything:
+Audit the system that constrains the model, not the model's promises. Build a
+falsifiable assurance case for the release under review:
 
-> **No artifact, no pass.** Judge the runtime record, not the architecture
-> diagram or the README. A control that is only *described* — in prose, in a
-> design doc, in the system prompt — is a **Fail**. A harness is evidence, not
-> confidence. And prefer evidence from channels the agent cannot author: a
-> harness-emitted tool-call / resource-access / message record outranks anything
-> the model self-reports, because a self-report is gameable.
+> **No causal evidence, no assurance.** A control is effective only when an
+> artifact shows that the deployed path invokes it before the protected
+> boundary, a boundary test or release-linked observation challenges it, and no
+> obvious bypass remains. Prompts, diagrams, dependencies, and self-reports are
+> leads—not enforcement.
 
-Your job is to find the evidence in the target repository (and run traces, if
-available), score each control against that evidence, and hand back an action
-plan the team can execute. You are not here to be reassured; you are here to
-find what will break in production.
+Keep three judgments separate:
 
-## Inputs and audit scope
+1. **Effectiveness** — does the safeguard stop the scoped failure?
+2. **Evidence level** — is it asserted, defined, wired, boundary-tested, or
+   observed in the release?
+3. **Confidence** — how complete, current, representative, and trustworthy is
+   the audit evidence?
 
-- **Target**: the path to the agent's repository (default: the current working
-  directory). If the user names a different path, audit that.
-- **Run traces** (optional): paths or a directory of real run logs/traces. If
-  present, inspect at least two — one ordinary successful run and one **boundary
-  run** that hit a policy denial, tool error, approval gate, evaluator failure,
-  escalation, rollback, or fallback. The happy path shows what the harness does
-  when nothing is stressed; the boundary path shows whether the harness exists
-  when it matters.
-- **Declared maturity band** (optional): ask the user, or infer and state your
-  assumption. The band determines which failures block launch (see Maturity).
+Do not turn them into a percentage. A polished inventory of weak evidence must
+not outvote one critical, bypassable boundary.
 
-Do not block on missing optional inputs. Default the target to the current
-directory, infer the intended band from real deployment signals, and label the
-result as an assumption. Record exclusions such as external policy services,
-managed gateways, unavailable traces, generated code, and inaccessible CI.
-An inaccessible surface is **Unverified**, not evidence of absence; map it to
-Fail for launch scoring and name the access needed to verify it.
+## Inputs
+
+- **Target:** repository path; default to the current working directory.
+- **Runtime evidence:** traces, eval results, incident records, or deployment
+  manifests; optional, but consequential production paths cannot be cleared
+  without it.
+- **Intended use:** deployment setting, users, data, tools, autonomy, and
+  consequences. Infer an impact tier when absent and label the assumption.
+
+Do not block on missing optional inputs. Record unavailable surfaces as **Not
+verified**, state the access needed, and apply the launch gate in the rubric.
+Never equate inaccessible with absent, or absence with N/A.
+
+## Required references
+
+Read these before scoring:
+
+- [audit-rubric.md](reference/audit-rubric.md) — claims, evidence levels,
+  capability modules, metrics, and launch gates.
+- [report-template.md](reference/report-template.md) — required report shape.
+
+Read [research-basis.md](reference/research-basis.md) when explaining the
+method, updating the rubric, selecting evaluation techniques, or auditing a
+novel surface. It records the primary research behind the workflow and its
+review date.
 
 ## Protocol
 
-Work in this order. Do not skip the prescan, and do not score a control Pass
-without a concrete artifact reference.
+Follow the sequence. Preserve uncertainty and counterevidence at every stage.
 
-### 1. Orient (≈2 min)
+### 1. Profile the release and impact
 
-Identify the substrate before judging it. Read `package.json` /
-`pyproject.toml` / lockfiles / `README` to determine the framework (LangGraph,
-OpenAI Agents SDK, Google ADK, Semantic Kernel, CrewAI, Mastra, or custom),
-the language, and where the agent's entry point, tools, prompts, policies,
-evals, and telemetry live. State what you found in one short paragraph.
+Read manifests, lockfiles, entry points, tool and MCP configuration, prompts,
+policy code, tests, evals, telemetry, and deployment files. Identify the exact
+release tuple when possible: model, prompt, policy, tools, context/retrieval,
+memory schema, evaluators, and harness revision.
 
-Also determine whether this is **single-agent or multi-agent** (handoffs,
-sub-agents, planner/worker roles, a graph with multiple agent nodes). If
-multi-agent, controls #42 (outbound disclosure) and #43 (communication policy)
-are in scope and the inter-agent message channel is a first-class audit surface
-— coordination expands the risk surface. If single-agent, mark #43 N/A and say so.
+Assign the impact tier from the rubric:
 
-Build a short **surface map** before scoring: model entry points, context and
-memory paths, every tool dispatcher and side-effecting adapter, identity/policy
-boundaries, inter-agent channels, output boundary, trace sink, and eval/release
-path. Scope each control only after this map exists. Do not mark a generally
-applicable control N/A merely because its feature is absent; absence is Fail.
+- **T0 — isolated experiment**
+- **T1 — bounded read-only**
+- **T2 — consequential operations**
+- **T3 — high-impact or privileged**
 
-### 2. Prescan for evidence (≈3 min)
+Choose the highest tier triggered by any reachable capability. Do not average a
+dangerous write path down with many harmless read paths.
 
-Run the deterministic prescan to get a fast map of candidate evidence:
+### 2. Build a boundary and capability map
+
+Run the deterministic prescan:
 
 ```bash
 node "$SKILL_DIR/scripts/prescan.mjs" <target-path>
 ```
 
-(If Node is unavailable or the script errors, fall back to `rg`/`grep`
-manually using the search hints in the checklist.) The prescan classifies hits
-by artifact type and only *locates*
-candidate evidence — it never decides Pass/Fail. **You** must open each hit and
-verify it actually enforces the control at the right boundary. A keyword match
-is not a control. Prescan deliberately skips dotenv files and redacts likely
-secrets; never paste secret-bearing source or trace payloads into the report.
+Use `--json` when machine-readable output helps. If Node is unavailable, use
+`rg` manually. The prescan only locates leads; open every material hit.
 
-### 3. Trace two representative paths
+Map the actual flow as edges, not a component list:
 
-If traces exist, select them deliberately:
+```text
+principal -> intent/authority -> model/context -> dispatcher -> tool/resource -> sink
+untrusted source -> retrieval/tool result/message -> context or memory
+release config -> runtime path -> trace/eval/incident record
+```
 
-1. Choose one ordinary run that exercises the primary intent and tools.
-2. Choose one boundary run that exercises the highest-risk touched surface.
-3. Reconcile trace events against code/config versions. A trace from an unknown
-   release can demonstrate behavior but cannot prove the current release.
-4. Record trace IDs and timestamps; redact user content, credentials, and
-   sensitive tool arguments.
+For every edge, note the trust change, identity, data class, authority source,
+persistence, side effect, monitor, and enforcement point. Inventory reachable
+capabilities, including indirect access through sub-agents, plugins, MCP
+servers, browser/computer use, shell/code execution, and delegated credentials.
 
-If no boundary trace exists, do not manufacture one or execute risky tools.
-Score trace-dependent guarantees no higher than Partial from code/tests alone,
-and require a runtime re-audit. A fixture may prove deterministic logic; it
-does not prove production wiring.
+Mark each capability module in the rubric **Applicable** or **N/A with a factual
+rationale**. Missing implementation is not N/A when the capability exists.
 
-### 4. Score the 44 controls
+### 3. Derive critical abuse stories
 
-Open `reference/checklist.md`. It lists every control with: the audit question,
-minimum pass evidence, the immediate fail signal, severity, where to look, and
-the ContextOS plane/doc that owns the remediation. For each control:
+Identify assets, principals, trusted instructions, untrusted observations,
+policy owners, and external sinks. Write concrete abuse stories for every
+consequential capability. Cover relevant origins:
 
-- **Pass** — a script, trace, manifest, config, test, or record proves the
-  control for a real path. Cite the artifact as `path:line`.
-- **Partial** — the control exists but coverage is incomplete, manual, delayed,
-  undocumented, or enforced at the wrong boundary. Cite what exists and what's
-  missing.
-- **Fail** — absent, unenforced, unverifiable, or prose-only. Say where you
-  looked.
+- malicious or confused user;
+- indirect instruction in a document, website, message, tool result, or memory;
+- wrong-user, wrong-tenant, or wrong-object action;
+- compromised tool, plugin, dependency, sub-agent, or upstream service;
+- model error, ambiguity, reward-seeking, or covert side task;
+- retry, timeout, partial failure, stale approval, or release drift.
 
-Use the evidence-strength rules at the top of the checklist. For a Pass, cite
-the enforcement point and either a boundary test/trace or a declarative runtime
-binding that makes bypass impossible. Configuration alone does not prove it is
-loaded; a helper alone does not prove it is called. When evidence conflicts,
-use the weaker score and explain the conflict.
+Express each story as:
 
-Apply the **five-minute rule**: if you cannot find the evidence within ~5
-minutes of searching, score it **Fail**. A control that can't be found under
-pressure won't protect the system under pressure. Note it as "not found within
-budget" rather than asserting it doesn't exist — but it still scores Fail.
+```text
+Given <authority and starting state>, when <failure or adversary> influences
+<boundary>, the harness must prevent/detect/recover from <observable harm>.
+```
 
-Severity (`P0`/`P1`/`P2`) comes from the checklist and is **independent** of the
-pass state — a P0 control that is `Partial` is still a launch blocker.
+Name the **cut point** that should stop it. Prioritize by reachable impact,
+attacker opportunity, reversibility, and blast radius—not by keyword count.
 
-### 5. Check arithmetic and decide
+### 4. Challenge the assurance claims
 
-- Roll the 44 control scores into the **eight outcome groups** (context-aware,
-  policy-governed, tool-controlled, validated, observable, reversible,
-  measurable, continuously improving).
-- Determine the **maturity band** the evidence actually supports (see below),
-  and compare it to the band the team *claims* to operate at. The gap between
-  claimed and evidenced maturity is the headline finding.
-- Apply the launch decision: **any P0 Fail/Partial blocks production** unless
-  the agent is fully read-only, isolated from real users, and confined to a
-  controlled beta.
-- Reconcile Pass + Partial + Fail + N/A to 44. Use N/A only where the checklist
-  explicitly permits it (#43 for a confirmed single-agent harness). Rollups
-  must reconcile to control detail. Do not invent a weighted aggregate score;
-  worst-severity gaps and evidence quality matter more than a percentage.
+Assess all eight core claims plus every applicable capability module in the
+rubric. For each claim:
 
-### 6. Emit the report
+1. Trace the enforcement chain from entry point to protected boundary.
+2. Cite the smallest safe `path:line`, test ID, trace ID, or deployment binding.
+3. Search for alternate dispatchers, direct SDK calls, fallback paths, stale
+   workers, over-broad credentials, and feature flags that bypass the control.
+4. Record contradictory evidence; score the weaker supported conclusion.
+5. Assign **Effective / Partially effective / Ineffective / Not verified / N/A**,
+   evidence level **E0–E4**, and confidence **High / Medium / Low**.
 
-Produce the scorecard using `reference/scorecard-template.md`. Include audit
-limitations and verdict confidence. The report MUST
-end with a **fix queue**: every gap gets an owner placeholder, severity, the
-concrete fix, the *expected evidence* that would flip it to Pass, and the
-ContextOS plane/doc to read. Order the queue by the dependency chain, not by
-control number — fix the most load-bearing failure first (a broken context
-compiler undermines grounding, validation, observability, and replay; a missing
-policy engine undermines tool control, approval, and privacy). Tell the user to
-fix one well and re-run the audit. Do not hand back dozens of parallel workstreams.
+An **Effective** claim requires an enforced mechanism, coverage of the scoped
+surface, and boundary evidence. A helper test proves the helper, not the real
+path. A runtime trace proves only the release and scenario it can be linked to.
 
-## Maturity bands
+Use a time budget to keep searching bounded, but do not mislabel uncertainty:
+record “not found within audit budget” as **Not verified**, then apply the same
+launch block as an unresolved claim at that tier.
 
-The band is not a label; it determines which failures block launch.
+### 5. Inspect or design behavioral evidence
 
-| Band | Appropriate use | Required controls | Not allowed |
-|---|---|---|---|
-| **Prototype** | Internal exploration, no real side effects, synthetic/low-risk data | Agent charter, basic eval set, trace capture, tool sandbox | Real users, PII, money movement, durable memory |
-| **Controlled beta** | Limited users, explicit supervision, compensating controls | P0 controls for touched surfaces, approval gates, offline evals, trace review, fix queue | Direct high-risk execution without a human gate |
-| **Production** | Real users, real tools, monitored release lifecycle | Full P0 pass, P1 gaps owned, live validation, replay, rollback, incident playbook | Unversioned prompt/model/tool changes |
-| **Regulated / high-risk** | Regulated data, money movement, legal/health/security, destructive actions | Full P0/P1 pass, red-team audit, retention policy, evidence retention, formal release governance | Informal approval, undocumented memory, non-replayable action |
+Select evidence by critical capability, not by an arbitrary number of traces.
+At minimum, seek for each critical path:
 
-## Discipline reminders
+- a benign task that should succeed;
+- a matched boundary task that should deny, clarify, minimize, or escalate;
+- a faulted task with a tool error, timeout, empty result, or partial write;
+- for untrusted-input paths, an adaptive indirect-injection task;
+- for memory, a write → later recall/use → selective repair/delete sequence.
 
-- **Equivalent evidence, not ContextOS terminology.** The target may use any
-  framework. You are looking for the *control*, however it's named — a Pydantic
-  guardrail, a LangGraph interrupt, an OPA policy, an OTEL span. The checklist's
-  ContextOS mapping is for the remediation pointer, not a naming requirement.
-- **Boundary over happy path.** If you only inspect a successful run, you have
-  audited the demo, not the harness.
-- **Completion is not safety.** A run that finishes the task is evidence of
-  nothing about whether it stayed in bounds — task completion and safety are
-  routinely misaligned, and a higher completion rate often means *more* boundary
-  crossings, not fewer. A run that completed the task while crossing a boundary
-  is a **Fail**, not a partial credit.
-- **Watch the object, not just the tool.** The most common live violation is the
-  *right tool on the wrong object* — a valid refund/lookup/file call applied to
-  an out-of-scope customer, record, or path. Schema validation passes; the
-  boundary is still crossed. Scrutinize resource-scope binding (#41) and the
-  argument-level axis of trajectory evals (#27) accordingly.
-- **Be specific and falsifiable.** Every Pass cites `path:line`. Every Fail says
-  where you looked. Never soften a P0 Fail into a suggestion.
-- **Don't fabricate.** If traces weren't provided, say the trace-dependent
-  controls were scored from code only and flag them for a runtime re-audit.
-- **Separate existence, wiring, and behavior.** A dependency proves capability,
-  configuration proves intent, and runtime wiring plus a boundary test/trace
-  proves enforcement. Score the strongest complete chain, not its strongest
-  isolated artifact.
-- **Sample honestly.** Do not extrapolate one protected tool, route, tenant, or
-  role to all others. Partial is the correct score for incomplete coverage.
+Reconcile every result to the release tuple. Prefer deterministic environment
+state, policy decisions, and tool-call arguments over the final answer. Use an
+LLM judge only for narrow semantic questions, preserve its prompt/version, and
+validate it against human-labeled examples. Never let a judge's prose override
+an observed forbidden state change.
 
-## What this audit is grounded in
+For stochastic agents, require repeated trials. Report benign utility,
+violation/attack success, consistency (`pass^k` when appropriate), and false
+positive/negative rates for monitors. Use paired benign/adversarial tasks so a
+defense that refuses everything cannot appear safe. Break results down by
+task/attack family; aggregates can hide a catastrophic slice.
 
-This skill is the runnable form of the ContextOS eight-property harness audit:
-https://contextosai.com/blog/eight-property-harness-audit — 44 controls grouped
-into eight outcomes, evidence required for every pass. The eight properties are
-defined at https://contextosai.com/docs/foundations/harness-engineering.
+Do not execute live attacks or risky tools merely to fill an evidence gap.
+Only run behavioral tests when the user has authorized them and the environment
+is isolated, reversible, and free of real-user impact. Otherwise specify the
+exact test and expected oracle for the owner to run.
+
+### 6. Make the launch decision
+
+Apply the tier-specific gates in the rubric. Use:
+
+- **BLOCKED** — a critical claim is Ineffective or Not verified, required
+  evidence is missing, or a credible bypass reaches unacceptable harm.
+- **CONDITIONAL** — intended use is safe only under explicit, testable
+  constraints or compensating controls.
+- **READY** — all tier-required claims meet the required status and evidence
+  gate, residual risks are owned, and evaluation coverage matches the release.
+
+Code-only review may support design assurance; it cannot clear a T2/T3 runtime.
+State the residual risk, audit confidence, evidence freshness, and exact scope
+of the decision. Do not assign a maturity label that implies evidence you did
+not inspect.
+
+### 7. Report and prioritize
+
+Use [report-template.md](reference/report-template.md). Lead with the highest-
+impact reachable failure path, not the inventory. Include:
+
+- boundary/capability map and applicability decisions;
+- critical abuse stories and cut points;
+- claim-by-claim status, evidence level, confidence, and counterevidence;
+- evaluation adequacy and measured rates when available;
+- launch gates, limitations, and residual risk;
+- a dependency-ordered fix queue of at most five active items.
+
+Each fix must name the mechanism, boundary, owner placeholder, and expected
+evidence that would change the judgment. Prefer one load-bearing cut point that
+closes several abuse stories over many prompt tweaks. End with the first fix to
+complete and the re-audit trigger.
+
+## Audit discipline
+
+- Treat model instructions as policy intent, never as the sole control for a
+  consequential boundary.
+- Evaluate the right action on the wrong object, user, tenant, recipient, or
+  time—not only the wrong tool.
+- Check what crossed the boundary even when the agent reported refusal.
+- Preserve safety and utility together; over-refusal is a reliability defect.
+- Distinguish prevention, detection-before-impact, detection-after-impact, and
+  recovery. They are not interchangeable.
+- Redact secrets, personal data, prompts, and sensitive tool arguments from the
+  report while preserving verifiable references.
+- Prefer framework-neutral claims. Require outcomes, not a particular planner,
+  policy engine, tracing vendor, or orchestration pattern.

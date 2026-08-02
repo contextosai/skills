@@ -78,7 +78,7 @@ point.
 
 | Skill | Description |
 | ----- | ----------- |
-| [`harness-audit`](./skills/harness-audit) | Production-readiness audit for an AI agent harness: scores 44 runtime controls against your agent's real code with file:line evidence and emits a fix queue. |
+| [`harness-audit`](./skills/harness-audit) | Threat-model-driven production-readiness audit for an AI agent harness: maps reachable capabilities, builds evidence-backed assurance claims, makes a risk-tiered launch decision, and emits a focused fix queue. |
 | [`commit-message`](./skills/commit-message) | Write a conventional git commit message from staged changes. |
 | [`pr-description`](./skills/pr-description) | Draft a PR title and description from a branch's commits and diff. |
 | [`readme-polish`](./skills/readme-polish) | Improve a README's clarity and structure without changing its meaning. |

@@ -12,8 +12,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Branch protection on `main` (PR + passing CI required, no force-push/deletion).
 
 ### Changed
-- `harness-audit` expanded from 40 to 44 runtime controls, adding the
-  trajectory-boundary controls (#41–#44).
+- `harness-audit` refactored from a fixed 44-control scorecard into an
+  applicability-aware assurance case. The new workflow separates control
+  effectiveness, evidence level, and audit confidence; adds impact-tiered
+  launch gates, capability-specific modules, threat-driven scenarios,
+  repeated-trial safety/utility metrics, lifecycle memory testing, and a
+  boundary-focused prescan with JSON output.
 
 ## [1.1.0] - 2026-05-31
 
