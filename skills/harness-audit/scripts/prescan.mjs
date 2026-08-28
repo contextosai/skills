@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Harness Audit prescan v2.
+ * Harness Audit prescan v3.
  *
  * Builds a deterministic map of candidate capabilities, trust boundaries,
  * assurance evidence, and bypass hotspots. It never assigns audit status.
@@ -88,6 +88,11 @@ const CAPABILITIES = [
     detail: "Runs may persist, resume, recur, retry, or operate asynchronously.",
     re: /\b(checkpoint|resume[_-]?(run|workflow)|workflow[_-]?id|durable|temporal|cron\b|schedule[_-]?job|background[_-]?worker|retry[_-]?(queue|policy)|lease[_-]?id)\b/i,
   },
+  {
+    id: "M9", label: "Skills, plugins, MCP, and behavior extensions",
+    detail: "Runtime behavior may be changed by skills, plugins, hooks, connectors, MCP servers, marketplaces, or dynamically loaded packages.",
+    re: /\b(skill[_-]?(bundle|manifest|registry|loader)|plugin[_-]?(manifest|registry|loader|install)|marketplace|mcp[_-]?(server|client|manifest)|tool[_-]?description|pre[_-]?tool[_-]?hook|post[_-]?tool[_-]?hook|dynamic[_-]?(import|tool)|extension[_-]?(manifest|registry|install))\b/i,
+  },
 ]
 
 const SURFACES = [
@@ -99,17 +104,27 @@ const SURFACES = [
   { id: "B6", label: "External sinks and state", re: /\b(database|repository|storage|send[_-]?(email|message)|publish|payment|refund|writeFile|fetch\(|axios\.|requests\.|tool[_-]?result)\b/i },
   { id: "B7", label: "Telemetry and release", re: /\b(trace[_-]?id|span[_-]?id|run[_-]?id|opentelemetry|audit[_-]?log|release[_-]?(tuple|manifest)|prompt[_-]?version|policy[_-]?version|model[_-]?version)\b/i },
   { id: "B8", label: "Evaluation and recovery", re: /\b(boundary[_-]?test|adversarial|red[_-]?team|prompt[_-]?injection|eval[_-]?(suite|dataset)|state[_-]?diff|rollback|compensat|kill[_-]?switch|fault[_-]?inject)\b/i },
+  { id: "B9", label: "Instruction and extension supply chain", re: /\b(system[_-]?prompt|developer[_-]?prompt|agents\.md|claude\.md|instruction[_-]?(surface|registry|precedence)|skill[_-]?(bundle|manifest)|plugin[_-]?(manifest|install)|marketplace|extension[_-]?(lock|manifest)|mcp[_-]?(manifest|server)|hook[_-]?(config|policy))\b/i },
 ]
 
 const ASSURANCE_LEADS = [
-  { id: "C1", label: "Authority and intent", re: /\b(principal|delegat|allowed[_-]?intent|intent[_-]?id|scope[_-]?check|clarif|consent|freshness)\b/i },
-  { id: "C2", label: "Complete mediation", re: /\b(tool[_-]?gateway|before[_-]?tool|policy[_-]?decision|validate[_-]?(args|tool)|authori[sz]e[_-]?(resource|action)|reference[_-]?monitor)\b/i },
-  { id: "C3", label: "Trust separation", re: /\b(untrusted|prompt[_-]?injection|instruction[_-]?hierarchy|source[_-]?provenance|trust[_-]?(label|level)|taint|canary)\b/i },
-  { id: "C4", label: "Information and state lifecycle", re: /\b(data[_-]?class|purpose[_-]?limitation|retention|redact|tenant[_-]?id|memory[_-]?(ttl|write|delete)|selective[_-]?delete|forget)\b/i },
-  { id: "C5", label: "Outcome integrity", re: /\b(state[_-]?diff|verify[_-]?(outcome|result)|tool[_-]?error|partial[_-]?failure|honest[_-]?failure|grounding|evidence[_-]?ref)\b/i },
-  { id: "C6", label: "Containment and recovery", re: /\b(idempoten|dedup|timeout|max[_-]?(steps|iterations)|budget|sandbox|egress|compensat|rollback|kill[_-]?switch|circuit[_-]?breaker)\b/i },
-  { id: "C7", label: "Accountability and release integrity", re: /\b(trace[_-]?id|audit[_-]?log|release[_-]?(tuple|manifest)|prompt[_-]?version|policy[_-]?version|tool[_-]?version|tamper[_-]?evident|correlation[_-]?id)\b/i },
-  { id: "C8", label: "Evaluation and change governance", re: /\b(golden[_-]?set|eval[_-]?(suite|dataset)|red[_-]?team|adversarial|pass\^k|attack[_-]?success|promotion[_-]?gate|regression|llm[_-]?judge|human[_-]?label)\b/i },
+  { id: "C1", label: "Authority continuity and intent", re: /\b(principal|workload[_-]?identity|delegat|allowed[_-]?intent|intent[_-]?id|scope[_-]?check|resource[_-]?audience|claim[_-]?hash|expires[_-]?at|revocation|clarif|business[_-]?purpose)\b/i },
+  { id: "C2", label: "Complete mediation and capability admission", re: /\b(tool[_-]?gateway|capability[_-]?(admission|manifest)|before[_-]?tool|policy[_-]?decision|normalize[_-]?(args|effect)|validate[_-]?(args|tool)|authori[sz]e[_-]?(resource|action)|reference[_-]?monitor)\b/i },
+  { id: "C3", label: "Trust, instruction, and supply-chain separation", re: /\b(untrusted|prompt[_-]?injection|instruction[_-]?(surface|hierarchy|precedence|registry)|source[_-]?provenance|transformation[_-]?lineage|trust[_-]?(label|level)|skill[_-]?lift|extension[_-]?provenance|taint|canary)\b/i },
+  { id: "C4", label: "Information and state lifecycle integrity", re: /\b(data[_-]?class|purpose[_-]?limitation|retention|redact|tenant[_-]?id|memory[_-]?(ttl|write|delete|promotion|quarantine)|selective[_-]?(delete|repair)|benign[_-]?preservation|tombstone|forget)\b/i },
+  { id: "C5", label: "Effect and outcome integrity", re: /\b(state[_-]?diff|verify[_-]?(outcome|result)|tool[_-]?error|partial[_-]?(failure|effect)|effect[_-]?(receipt|pending|observed)|postcondition|precondition|mutation[_-]?receipt|honest[_-]?failure|evidence[_-]?ref)\b/i },
+  { id: "C6", label: "Containment, resilience, and recovery", re: /\b(idempoten|dedup|timeout|max[_-]?(steps|iterations|delegation)|budget|sandbox|egress|compensat|rollback|kill[_-]?switch|revocation[_-]?slo|circuit[_-]?breaker|verification[_-]?failed|recovered)\b/i },
+  { id: "C7", label: "Reconstructability and release integrity", re: /\b(trace[_-]?id|audit[_-]?log|release[_-]?(tuple|manifest)|skill[_-]?bundle[_-]?sha|sandbox[_-]?profile|evaluator[_-]?(set|version)|portable[_-]?trajectory|atif\b|decision[_-]?record|tamper[_-]?evident|correlation[_-]?id)\b/i },
+  { id: "C8", label: "Evaluation, oversight, and change governance", re: /\b(golden[_-]?set|held[_-]?out|eval[_-]?(suite|dataset)|red[_-]?team|adversarial|pass\^k|attack[_-]?success|useful[_-]?but[_-]?unsafe|skill[_-]?lift|promotion[_-]?gate|immutable[_-]?outer[_-]?loop|residual[_-]?risk|reviewer[_-]?false[_-]?negative|regression|llm[_-]?judge|human[_-]?label)\b/i },
+]
+
+const LIFECYCLE_PHASES = [
+  { id: "L1", label: "Harness configuration", detail: "Setup, environment, defaults, credentials, policy bindings, and deployment overrides.", re: /\b(bootstrap|setup[_-]?config|environment[_-]?template|safe[_-]?default|permission[_-]?default|deployment[_-]?(config|override)|sandbox[_-]?profile|policy[_-]?(bundle|binding)|secret[_-]?injection)\b/i },
+  { id: "L2", label: "Capability extension", detail: "Skills, plugins, hooks, MCP servers, marketplaces, connectors, and extension updates.", re: /\b(skill[_-]?(bundle|manifest|loader)|plugin[_-]?(manifest|install|update)|marketplace|mcp[_-]?(server|manifest)|extension[_-]?(lock|manifest|install|update)|hook[_-]?(config|policy)|package[_-]?provenance)\b/i },
+  { id: "L3", label: "Runtime operation", detail: "Live instruction, context, identity, policy, tool, delegation, and information-flow decisions.", re: /\b(compiled[_-]?context|instruction[_-]?(surface|registry)|policy[_-]?decision|tool[_-]?(gateway|dispatch|call)|run[_-]?claim|principal[_-]?chain|prompt[_-]?injection|handoff|delegate)\b/i },
+  { id: "L4", label: "State persistence", detail: "Memory, checkpoints, summaries, schedules, cached state, promotion, quarantine, and repair.", re: /\b(memory[_-]?(write|read|store|promotion|quarantine|repair)|checkpoint|persistent[_-]?state|scheduled[_-]?trigger|tombstone|selective[_-]?repair|benign[_-]?preservation|resume[_-]?(run|workflow))\b/i },
+  { id: "L5", label: "Action and effect control", detail: "Authorization, normalization, approval, execution, postconditions, reconciliation, and compensation.", re: /\b(normalized[_-]?(effect|arguments)|approval[_-]?(request|receipt|gate)|idempoten|precondition|postcondition|effect[_-]?(receipt|pending|observed)|mutation[_-]?receipt|compensat|reconcil)\b/i },
+  { id: "L6", label: "Incident recovery and promotion", detail: "Containment, revocation, evidence preservation, rollback, replay, canaries, and governed improvement.", re: /\b(incident[_-]?(response|playbook)|kill[_-]?switch|revoke|revocation|contain|evidence[_-]?preservation|rollback|replay|canary|promotion[_-]?gate|immutable[_-]?outer[_-]?loop|recovery[_-]?drill)\b/i },
 ]
 
 const HOTSPOTS = [
@@ -148,6 +163,21 @@ const HOTSPOTS = [
     detail: "Inspect retries and partial failures; a line-level lead cannot prove idempotency is absent.",
     re: /\b(send[_-]?(email|message)|create[_-]?(order|booking|ticket)|refund|payment|transfer|delete[_-]?(record|file))\s*\(/i,
   },
+  {
+    id: "H8", label: "Dynamic capability or extension loading",
+    detail: "Confirm runtime-loaded tools, skills, plugins, hooks, and MCP servers are admitted from a pinned bundle with declared permissions and revocation.",
+    re: /\b(import\(|require\(|load[_-]?(plugin|skill|extension|tool)|install[_-]?(plugin|skill|extension)|register[_-]?(dynamic[_-]?)?(tool|plugin)|discover[_-]?(tools|plugins|skills))/i,
+  },
+  {
+    id: "H9", label: "Token passthrough or generic agent identity",
+    detail: "Confirm downstream calls use a short-lived audience-bound per-call credential and preserve agent, workload, and delegated principal separately.",
+    re: /\b(token[_-]?passthrough|forward[_-]?(token|authorization)|shared[_-]?(service[_-]?)?(account|credential)|generic[_-]?(service[_-]?)?(account|principal)|parent[_-]?token)\b/i,
+  },
+  {
+    id: "H10", label: "Self-modifying release or evaluator",
+    detail: "Confirm an immutable outer loop owns authority, held-out data, evaluator versions, promotion, canary scope, rollback, and evidence retention.",
+    re: /\b(self[_-]?(modify|improv|evolv)|auto[_-]?(tune|promote|deploy)|update[_-]?(prompt|policy|evaluator|threshold)|rewrite[_-]?(skill|prompt|policy)|candidate[_-]?promotion)\b/i,
+  },
 ]
 
 const FRAMEWORKS = [
@@ -177,6 +207,7 @@ function newHitMap(signals) {
 const capabilityHits = newHitMap(CAPABILITIES)
 const surfaceHits = newHitMap(SURFACES)
 const assuranceHits = newHitMap(ASSURANCE_LEADS)
+const lifecycleHits = newHitMap(LIFECYCLE_PHASES)
 const hotspotHits = newHitMap(HOTSPOTS)
 const manifestText = []
 let filesScanned = 0
@@ -189,6 +220,7 @@ function artifactKind(relativePath) {
   if (/(^|\/)(test|tests|spec|specs|eval|evals|redteam|fixtures?)(\/|$)|\.(test|spec)\./.test(value)) return "test/eval"
   if (/(^|\/)(trace|traces|logs|runs|telemetry|incidents?)(\/|$)/.test(value)) return "trace/incident"
   if (/(^|\/)(deploy|deployment|infra|terraform|k8s|helm|policies|manifests?)(\/|$)/.test(value)) return "deployment/policy"
+  if (/(^|\/)(skills?|plugins?|extensions?|hooks?|mcp)(\/|$)/.test(value)) return "behavior extension"
   if (/\.(md|mdx|txt)$/.test(value) || /(^|\/)(docs?|runbooks?)(\/|$)/.test(value)) return "docs/assertion"
   if (/\.(ya?ml|json|toml|ini|cfg|rego)$/.test(value) || /(^|\/)(config)(\/|$)/.test(value)) return "config/definition"
   return "code/wiring"
@@ -252,6 +284,7 @@ function scanFile(file) {
     recordSignals(CAPABILITIES, capabilityHits, line, reference, kind)
     recordSignals(SURFACES, surfaceHits, line, reference, kind)
     recordSignals(ASSURANCE_LEADS, assuranceHits, line, reference, kind)
+    recordSignals(LIFECYCLE_PHASES, lifecycleHits, line, reference, kind)
     recordSignals(HOTSPOTS, hotspotHits, line, reference, kind)
   }
 }
@@ -310,13 +343,14 @@ walk(target)
 const manifestBlob = manifestText.join("\n")
 const frameworks = FRAMEWORKS.filter(([, regex]) => regex.test(manifestBlob)).map(([label]) => label)
 const result = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   target,
   detectedFrameworks: frameworks.length ? frameworks : ["Unknown or custom"],
   stats: { filesScanned, filesSkipped, scanCapped },
   capabilities: materialize(CAPABILITIES, capabilityHits),
   surfaces: materialize(SURFACES, surfaceHits),
   assuranceLeads: materialize(ASSURANCE_LEADS, assuranceHits),
+  lifecycleLeads: materialize(LIFECYCLE_PHASES, lifecycleHits),
   hotspots: materialize(HOTSPOTS, hotspotHits),
 }
 
@@ -344,7 +378,7 @@ function emitSignalSection(output, title, entries, emptyText) {
 }
 
 const output = []
-output.push("# Harness Audit — prescan v2", "")
+output.push("# Harness Audit — prescan v3", "")
 output.push(`- **Target:** \`${target}\``)
 output.push(`- **Detected framework:** ${result.detectedFrameworks.join(", ")}`)
 output.push(`- **Files scanned:** ${filesScanned}${scanCapped ? " (capped)" : ""}`)
@@ -355,10 +389,12 @@ output.push("> Candidate evidence only. A hit does not establish applicability, 
 emitSignalSection(output, "Candidate capability profile", result.capabilities, "No capability signals found. Confirm manually from entry points and deployment configuration.")
 emitSignalSection(output, "Boundary surface leads", result.surfaces, "No boundary signals found. Build the surface map manually.")
 emitSignalSection(output, "Assurance evidence leads", result.assuranceLeads, "No assurance signals found. This is not proof that safeguards are absent.")
+emitSignalSection(output, "Lifecycle phase leads", result.lifecycleLeads, "No lifecycle signals found. Resolve configuration, extension, runtime, persistence, effect, and recovery applicability manually.")
 emitSignalSection(output, "Potential bypass hotspots", result.hotspots, "No hotspot patterns found. Manual bypass analysis is still required.")
 
 const missingCapabilities = result.capabilities.filter((entry) => !entry.hits.length)
 const missingClaims = result.assuranceLeads.filter((entry) => !entry.hits.length)
+const missingPhases = result.lifecycleLeads.filter((entry) => !entry.hits.length)
 output.push("## No-signal areas to resolve", "")
 output.push("No signal means **unknown**, not N/A or Ineffective. Establish reachability and inspect non-code controls before judging.", "")
 if (missingCapabilities.length) {
@@ -367,7 +403,10 @@ if (missingCapabilities.length) {
 if (missingClaims.length) {
   output.push(`- **Core claims:** ${missingClaims.map((entry) => `${entry.id} ${entry.label}`).join("; ")}`)
 }
+if (missingPhases.length) {
+  output.push(`- **Lifecycle phases:** ${missingPhases.map((entry) => `${entry.id} ${entry.label}`).join("; ")}`)
+}
 output.push("")
-output.push("---", "Next: read `reference/audit-rubric.md`, map reachable edges, derive critical abuse stories, and build claim evidence. No causal evidence, no assurance.")
+output.push("---", "Next: read `reference/audit-rubric.md`, pin the release manifest, map access and influence, build the lifecycle matrix, derive critical scenarios, and challenge effect proof packets. No causal chain, no assurance.")
 
 process.stdout.write(`${output.join("\n")}\n`)

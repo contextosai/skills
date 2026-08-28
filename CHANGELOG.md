@@ -18,6 +18,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   launch gates, capability-specific modules, threat-driven scenarios,
   repeated-trial safety/utility metrics, lifecycle memory testing, and a
   boundary-focused prescan with JSON output.
+- `harness-audit` evolved again around the complete evaluated runtime bundle.
+  It now pins a release manifest, maps composite authority and revocation,
+  audits configuration through recovery as a six-phase lifecycle, registers
+  instruction and extension surfaces, requires proof packets for consequential
+  effects, evaluates skills with paired live evidence, measures oversight
+  effectiveness, and keeps adaptive promotion behind an immutable outer loop.
+  The prescan schema is now v3 with lifecycle, behavior-extension, identity,
+  effect, and self-modification leads.
 
 ## [1.1.0] - 2026-05-31
 

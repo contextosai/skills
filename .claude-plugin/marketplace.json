@@ -6,12 +6,12 @@
   },
   "metadata": {
     "description": "Contextos AI skills collection",
-    "version": "1.1.0"
+    "version": "1.2.0"
   },
   "plugins": [
     {
       "name": "harness-audit",
-      "description": "Threat-model-driven production-readiness audit for AI agent harnesses. Maps reachable capabilities and trust boundaries, challenges critical assurance claims with code, tests, evaluations, and release-linked traces, makes a risk-tiered launch decision, and emits a focused fix queue.",
+      "description": "Release- and lifecycle-aware assurance audit for AI agent harnesses. Enumerates the evaluated runtime bundle, access and influence paths, configuration-to-recovery threats, consequential effect proof, evaluation adequacy, and impact-tiered launch gates from real artifacts.",
       "source": "./",
       "strict": false,
       "skills": [

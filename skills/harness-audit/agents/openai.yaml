@@ -1,4 +1,4 @@
 interface:
   display_name: "Harness Audit"
-  short_description: "Threat-model agent harness assurance audits"
-  default_prompt: "Use $harness-audit to map this agent's reachable capabilities, challenge its critical boundaries with causal evidence, and make a risk-tiered launch decision."
+  short_description: "Audit agent releases, lifecycles, authority, and effects"
+  default_prompt: "Use $harness-audit to pin this agent's evaluated runtime bundle, map authority and lifecycle attack paths, challenge consequential effects with causal proof, and make an impact-tiered launch decision."
