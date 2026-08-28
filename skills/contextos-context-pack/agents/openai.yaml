@@ -1,0 +1,4 @@
+interface:
+  display_name: "ContextOS Context Pack"
+  short_description: "Author governed, replayable Context Packs"
+  default_prompt: "Use $contextos-context-pack to author or review a Context Pack for this workflow."

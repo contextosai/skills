@@ -1,0 +1,4 @@
+interface:
+  display_name: "ContextOS Docs Author"
+  short_description: "Create compliant ContextOS documentation"
+  default_prompt: "Use $contextos-docs-author to create or revise this ContextOS documentation page."

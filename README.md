@@ -46,6 +46,18 @@ Then install a plugin. The production harness audit:
 /plugin install harness-audit@contextosai-skills
 ```
 
+ContextOS runtime design, Context Pack authoring, and proof-carrying run audit:
+
+```
+/plugin install contextos-runtime@contextosai-skills
+```
+
+ContextOS spec, contract, docs, and blog stewardship:
+
+```
+/plugin install contextos-stewardship@contextosai-skills
+```
+
 Or the example skills (commit messages, PR descriptions, README polish):
 
 ```
@@ -92,6 +104,13 @@ point.
 | Skill | Description |
 | ----- | ----------- |
 | [`harness-audit`](./skills/harness-audit) | Release- and lifecycle-aware assurance audit for an AI agent harness: maps the evaluated runtime bundle, effective authority, lifecycle attacks, effect proof, and evaluation evidence into an impact-tiered launch decision and focused fix queue. |
+| [`contextos-architect`](./skills/contextos-architect) | Design a governed ContextOS thin slice across the five planes, canonical artifacts, evaluation gates, and staged rollout. |
+| [`contextos-context-pack`](./skills/contextos-context-pack) | Author or review a Context Pack, its cross-layer bindings, compiler scenarios, evidence gates, and release invariants. |
+| [`contextos-run-audit`](./skills/contextos-run-audit) | Audit one proof-carrying run across context, evidence, policy, approvals, effects, decision records, replay, and recovery. |
+| [`contextos-spec-steward`](./skills/contextos-spec-steward) | Evolve the ContextOS canonical spec and typed reference without semantic drift or unnecessary scope. |
+| [`contextos-contract-sync`](./skills/contextos-contract-sync) | Synchronize ContextOS runtime types, JSON Schemas, producers, examples, docs, and parity tests. |
+| [`contextos-docs-author`](./skills/contextos-docs-author) | Create compliant ContextOS docs with the correct template, navigation, components, canonical examples, and verification. |
+| [`contextos-blog-publisher`](./skills/contextos-blog-publisher) | Publish complete ContextOS blog packages with accurate terminology, routing metadata, read-next links, and optional social art. |
 | [`commit-message`](./skills/commit-message) | Write a conventional git commit message from staged changes. |
 | [`pr-description`](./skills/pr-description) | Draft a PR title and description from a branch's commits and diff. |
 | [`readme-polish`](./skills/readme-polish) | Improve a README's clarity and structure without changing its meaning. |

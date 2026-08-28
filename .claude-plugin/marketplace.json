@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Contextos AI skills collection",
-    "version": "1.2.0"
+    "version": "1.3.0"
   },
   "plugins": [
     {
@@ -27,6 +27,29 @@
         "./skills/commit-message",
         "./skills/pr-description",
         "./skills/readme-polish"
+      ]
+    },
+    {
+      "name": "contextos-runtime",
+      "description": "Design ContextOS-aligned agent runtimes, author governed Context Packs, and audit proof-carrying runs against current contract invariants.",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/contextos-architect",
+        "./skills/contextos-context-pack",
+        "./skills/contextos-run-audit"
+      ]
+    },
+    {
+      "name": "contextos-stewardship",
+      "description": "Maintain the ContextOS specification, runtime contracts, documentation, and editorial publishing surfaces without semantic drift.",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/contextos-spec-steward",
+        "./skills/contextos-contract-sync",
+        "./skills/contextos-docs-author",
+        "./skills/contextos-blog-publisher"
       ]
     }
   ]

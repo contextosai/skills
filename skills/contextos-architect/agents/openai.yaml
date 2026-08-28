@@ -1,0 +1,4 @@
+interface:
+  display_name: "ContextOS Architect"
+  short_description: "Design a governed ContextOS thin slice"
+  default_prompt: "Use $contextos-architect to map this agent workflow to the five planes and produce a staged architecture."

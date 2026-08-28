@@ -1,0 +1,4 @@
+interface:
+  display_name: "ContextOS Blog Publisher"
+  short_description: "Publish complete ContextOS blog packages"
+  default_prompt: "Use $contextos-blog-publisher to create or revise this ContextOS blog post and its distribution metadata."

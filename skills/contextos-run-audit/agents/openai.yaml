@@ -1,0 +1,4 @@
+interface:
+  display_name: "ContextOS Run Audit"
+  short_description: "Audit proof-carrying agent runs"
+  default_prompt: "Use $contextos-run-audit to audit these run artifacts and identify any missing proof."

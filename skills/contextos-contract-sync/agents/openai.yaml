@@ -1,0 +1,4 @@
+interface:
+  display_name: "ContextOS Contract Sync"
+  short_description: "Synchronize ContextOS runtime contracts"
+  default_prompt: "Use $contextos-contract-sync to evolve this runtime contract across types, schemas, docs, and tests."

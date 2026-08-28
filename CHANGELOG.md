@@ -10,6 +10,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `SECURITY.md` with a private vulnerability-reporting policy.
 - `.github/CODEOWNERS` and Dependabot config for GitHub Actions updates.
 - Branch protection on `main` (PR + passing CI required, no force-push/deletion).
+- `contextos-runtime` plugin with architecture, Context Pack authoring, and
+  proof-carrying run audit skills.
+- `contextos-stewardship` plugin with spec, runtime-contract, docs, and blog
+  publishing skills.
 
 ### Changed
 - `harness-audit` refactored from a fixed 44-control scorecard into an

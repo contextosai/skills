@@ -1,0 +1,4 @@
+interface:
+  display_name: "ContextOS Spec Steward"
+  short_description: "Evolve the ContextOS spec without drift"
+  default_prompt: "Use $contextos-spec-steward to make this ContextOS spec change and keep coupled surfaces aligned."
