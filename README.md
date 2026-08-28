@@ -19,6 +19,19 @@ working examples, or use the [`template`](./template) as a starting point.
 - [`./spec`](./spec) — the Agent Skills specification
 - [`./template`](./template) — a minimal skill template
 
+## Install in Codex
+
+Use [Codex's built-in skill installer](https://learn.chatgpt.com/docs/build-skills)
+to install `harness-audit` directly from this repository:
+
+```text
+$skill-installer install harness-audit from https://github.com/contextosai/skills/tree/main/skills/harness-audit
+```
+
+Codex discovers newly installed skills automatically. If the skill does not
+appear, restart Codex. Invoke it explicitly with `$harness-audit`, or ask Codex
+to audit an agent harness for production readiness.
+
 ## Install in Claude Code
 
 Register this repository as a plugin marketplace:
