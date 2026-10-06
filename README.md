@@ -103,7 +103,7 @@ point.
 
 | Skill | Description |
 | ----- | ----------- |
-| [`harness-audit`](./skills/harness-audit) | Release- and lifecycle-aware assurance audit for an AI agent harness: maps the evaluated runtime bundle, effective authority, lifecycle attacks, effect proof, and evaluation evidence into an impact-tiered launch decision and focused fix queue. |
+| [`harness-audit`](./skills/harness-audit) | Evidence-based harness triage, release, change, and incident review: traces authority and effects, checks permission boundaries and evaluation integrity, and produces scoped findings, launch gates when requested, and a focused fix queue. |
 | [`contextos-architect`](./skills/contextos-architect) | Design a governed ContextOS thin slice across the five planes, canonical artifacts, evaluation gates, and staged rollout. |
 | [`contextos-context-pack`](./skills/contextos-context-pack) | Author or review a Context Pack, its cross-layer bindings, compiler scenarios, evidence gates, and release invariants. |
 | [`contextos-run-audit`](./skills/contextos-run-audit) | Audit one proof-carrying run across context, evidence, policy, approvals, effects, decision records, replay, and recovery. |

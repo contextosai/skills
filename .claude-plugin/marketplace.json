@@ -11,7 +11,7 @@
   "plugins": [
     {
       "name": "harness-audit",
-      "description": "Release- and lifecycle-aware assurance audit for AI agent harnesses. Enumerates the evaluated runtime bundle, access and influence paths, configuration-to-recovery threats, consequential effect proof, evaluation adequacy, and impact-tiered launch gates from real artifacts.",
+      "description": "Evidence-based triage, release, change, and incident review for AI agent harnesses. Traces authority and effects, challenges permission boundaries and evaluation integrity, and produces scoped findings, closure evidence, and launch decisions when requested.",
       "source": "./",
       "strict": false,
       "skills": [

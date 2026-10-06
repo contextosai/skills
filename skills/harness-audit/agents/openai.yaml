@@ -1,4 +1,4 @@
 interface:
   display_name: "Harness Audit"
-  short_description: "Audit agent releases, lifecycles, authority, and effects"
-  default_prompt: "Use $harness-audit to pin this agent's evaluated runtime bundle, map authority and lifecycle attack paths, challenge consequential effects with causal proof, and make an impact-tiered launch decision."
+  short_description: "Audit harness boundaries, evidence, and release decisions"
+  default_prompt: "Use $harness-audit to review this agent harness, trace its highest-impact paths, test the quality of its evidence, and produce a scoped conclusion with a prioritized closure plan."

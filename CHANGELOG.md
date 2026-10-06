@@ -16,6 +16,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   publishing skills.
 
 ### Changed
+- `harness-audit` refreshed against primary research reviewed on 2026-10-06,
+  including the October 5 harness-evolution revision. Adds scoped triage,
+  release, change, and incident modes; a conditional evaluation protocol for
+  permission counterfactuals, monitor enforcement, contamination, matched-budget
+  comparisons, temporal adaptation, and uncertainty; and a compact report with
+  optional evidence appendices. Distinguishes evidence gaps from demonstrated
+  failures and local launch policy from research findings. Prescan v3 output
+  remains compatible, with its discovery limits now explicit in the workflow.
 - `harness-audit` refactored from a fixed 44-control scorecard into an
   applicability-aware assurance case. The new workflow separates control
   effectiveness, evidence level, and audit confidence; adds impact-tiered

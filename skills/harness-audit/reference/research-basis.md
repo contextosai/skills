@@ -1,345 +1,227 @@
 # Research Basis
 
-Reviewed **2026-08-28**. This note records why the audit is a release-specific,
-lifecycle assurance case rather than a flat compliance checklist. It also
-separates research evidence from ContextOS's engineering synthesis.
+Reviewed **2026-10-06**. This is a selective primary-source review through that
+date, not an exhaustive survey. Links pin paper versions where inspected;
+engineering posts retain their publication dates. New preprints supply useful
+hypotheses and evaluation designs, not independently replicated production
+assurance. No benchmark percentage becomes a universal launch threshold.
 
-Most August 2026 sources below are preprints, public implementations, or
-standards work. Treat their mechanisms as useful evaluation designs, not settled
-universal thresholds or proof that a product is safe.
+The maintained method lives in [audit-rubric.md](audit-rubric.md) and
+[evaluation-protocol.md](evaluation-protocol.md). Findings below distinguish
+what a source reports from the audit's engineering inference.
 
-## ContextOS synthesis adopted in this revision
+## Recent work that changes the method
 
-The rewrite incorporates the following ContextOS field arguments because each
-changes an auditable artifact, scenario, oracle, metric, or launch gate:
+### R1 — Match the measurement to the claim
 
-- [Harness Engineering in August 2026](https://contextosai.com/blog/harness-engineering-state-of-field-august-2026)
-  treats the deployed system—not the model—as the release unit and joins
-  release manifests, lifecycle security, skills, portable trajectories,
-  delegated authority, effects, and recovery.
-- [The Harness Engineering Roadmap for 2026–27](https://contextosai.com/blog/harness-engineering-roadmap-2026-2027)
-  specifies the proof-carrying-run direction: complete manifests, layered
-  traces, attenuated delegation, postcondition-bearing effect receipts,
-  semantic recovery states, causal improvement, and an immutable outer loop.
-- [HarnessRisk in Practice](https://contextosai.com/blog/harness-lifecycle-security-harnessrisk)
-  turns configuration, extension, runtime, persistence, action, and recovery
-  into a cross-phase security matrix and separates recognition from prevention.
-- [Skill Lift](https://contextosai.com/blog/agent-skill-lift-continuous-evaluation)
-  treats skills and behavior packages as executable release artifacts requiring
-  structural, supply-chain, discovery, execution, and paired marginal-value
-  evidence.
-- [Harness-IF and A2E](https://contextosai.com/blog/harness-instruction-following-evals-harness-if-a2e)
-  makes instruction surfaces, rule applicability, against-prior behavior,
-  omissions, conflicts, trajectory evidence, and economics first-class eval
-  concerns.
-- [The AI Agent Access Graph](https://contextosai.com/blog/ai-agent-access-graph-ciso-dashboard)
-  reframes privilege as source-to-sink reachability through composite authority,
-  adds drift baselines, and treats a kill switch as graph closure rather than a
-  registry flag.
-- [Persistent Memory Poisoning](https://contextosai.com/blog/persistent-memory-poisoning-lifecycle)
-  operationalizes memory security as capture, promotion, recall, effect, and
-  selective-repair closure with transformation lineage and authority
-  non-escalation.
-- [Human Oversight for Agent Fleets](https://contextosai.com/blog/human-oversight-agent-fleets-audit-budget)
-  requires mandatory gates, random coverage, reviewer-quality measurement, and
-  demonstrated residual-risk reduction instead of review-throughput claims.
-- [Agent Identity Is the New Trust Boundary](https://contextosai.com/blog/agent-identity-trust-boundary)
-  separates agent subject, workload proof, delegated principal, short-lived
-  run authority, audience, lifecycle, and audit evidence across MCP/A2A seams.
+[Agent Evaluation Reliability: More Tasks Won't (Always) Fix An Agent Leaderboard,
+v1](https://arxiv.org/abs/2610.00651v1), submitted **2026-09-30**. Research
+preprint; abstract and submission record inspected.
 
-These articles are engineering interpretations. The sections below tie the
-adopted practices to primary research and specifications where available.
+- **Finding:** A variance-decomposition analysis of 22 benchmarks distinguishes
+  reliable rankings of fixed model–scaffold systems from less reliable claims
+  about underlying models. Limited scaffold coverage can dominate uncertainty.
+- **Audit inference:** State the population and estimand before interpreting a
+  score. Evaluate the deployed bundle for release claims; vary scaffolds only
+  for claims intended to generalize over them. Allocate additional evaluation
+  to the uncertainty source, not automatically to more tasks or seeds.
+- **Limit:** Leaderboard reliability is not a measurement of production harm.
+  It does not require every product audit to test multiple harnesses.
 
-## Methodological findings adopted
+### R2 — Separate harness improvement from extra search
 
-### The complete evaluated runtime bundle is the release unit
+[Rethinking the Evaluation of Harness Evolution for Agents,
+v4](https://arxiv.org/html/2607.12227v4), revised **2026-10-05**; first submitted
+2026-07-14. Research preprint; evaluation design and results inspected.
 
-Behavior changes with the harness, instruction placement, skill availability,
-tool surface, sandbox, evaluator, and state—not only the model.
+- **Finding:** Under matched feedback and compute budgets, the studied harness
+  evolution methods underperform simple search baselines on Terminal-Bench and
+  generalize weakly to held-out tasks. The revised paper also reports benefits
+  in long-horizon games; its conclusion is setting-dependent.
+- **Audit inference:** Require unchanged-harness search baselines, separated
+  development/selection/test sets, and optimization-cost accounting for claims
+  of reusable improvement. Keep release adequacy separate from superiority.
+- **Limit:** This does not establish that harness evolution always fails or
+  always helps. Do not carry the initial version's narrower result forward as
+  the entire current finding.
 
-- [The Scaffold Effect](https://arxiv.org/abs/2607.22585) studies harness choice
-  as a hidden variable in coding-agent evaluation.
-- [A2E](https://arxiv.org/abs/2608.07346) separates tasks, harness bindings,
-  runners, instrumentation, traces, and multidimensional metrics, and observes
-  task-dependent model–harness variation.
-- [Harness-IF](https://arxiv.org/abs/2608.11727) shows that operational rules
-  arrive through multiple instruction surfaces and that measured compliance
-  varies by rule and surface.
-- [ACES](https://arxiv.org/abs/2608.20614) holds model, harness, workspace, and
-  scorer fixed while changing skill availability, demonstrating why a skill is
-  part of the evaluated release tuple.
+### R3 — Test permission, appearance, and competence separately
 
-**Audit consequence:** reconstruct a content-addressed manifest for model and
-routing, harness, instructions, skills/extensions, tools, identity/policy,
-context/retrieval, memory, sandbox, trace/evaluator, recovery, and deployment.
-Bind every scenario, trace, effect, and launch claim to that manifest. Treat an
-untracked change as drift and re-evaluation scope, not a documentation nit.
+[AgentBoundary: Counterfactual Evaluation of Safety in Tool-Using LLM Agents,
+v1](https://arxiv.org/html/2609.33658v1), **2026-09-27**. Research preprint;
+construction and trajectory-evaluation sections inspected.
 
-### Audit trajectories, rules, external state, and economics independently
+- **Finding:** Matched workflows vary apparent risk independently of permission,
+  exposing both unauthorized compliance and failures on risky-looking permitted
+  work. Decisions depend on facts revealed during execution.
+- **Audit inference:** Use the four-cell permission/appearance design and an
+  ambiguous-permission case when relevant. Grade from evidence available before
+  the action; distinguish over-refusal from inability to finish the task.
+- **Limit:** Synthetic, human-validated benchmark families do not establish a
+  product's permission policy or prove a learned calibrator is an authority
+  boundary. Permission still comes from trusted runtime evidence.
 
-Final-answer correctness cannot reveal an unsafe intermediate access, a missing
-approval, an omitted required step, a secret in a tool argument, or a false
-success after a partial effect.
+### R4 — A monitor is only one part of prevention
 
-- [Auditing Agent Harness Safety](https://arxiv.org/abs/2605.14271) evaluates
-  full trajectories across boundary compliance, execution fidelity, and system
-  stability; it reports that completion and safe execution can diverge and that
-  violations accumulate with trajectory length.
-- [Harness-IF](https://arxiv.org/abs/2608.11727) evaluates rules individually
-  from execution evidence, introduces Against-Prior Accuracy, and reports
-  substantial omission and workflow/output-control failure mass.
-- [A2E](https://arxiv.org/abs/2608.07346) adds efficiency, tool use, planning,
-  and recovery dimensions beyond correctness.
-- [τ-bench](https://arxiv.org/abs/2406.12045) checks multi-turn tool use against
-  domain policy and authoritative database state, motivating state oracles and
-  repeated-run consistency.
+[HARDE: Optimizing Agent Harnesses for Runtime Risk Detection and Execution
+Control, v1](https://arxiv.org/html/2609.38291v1), **2026-09-29**. Research
+preprint; module design and ablations inspected.
 
-**Audit consequence:** use four independent lenses—outcome, rule, runtime, and
-economics. Maintain a rule registry with owner, authority, surface,
-applicability, conflict/precedence, criticality, expected milestone/forbidden
-event, and oracle. Test against-prior rules, omissions, oversteps, and conflicts.
-Do not allow final tests or polished prose to erase a trajectory violation.
+- **Finding:** Trigger, monitor, and feedback components play complementary
+  roles. Module-specific probing and refinement improve the reported
+  safety–utility tradeoff across the evaluated attack benchmarks.
+- **Audit inference:** Inspect trigger coverage, monitor judgment, actual
+  intervention, and safe continuation separately. Include monitor outages,
+  bypassed inspection, and recovery from contaminated observations.
+- **Limit:** The paper's LLM monitor and optimization recipe are candidates to
+  evaluate, not required architecture. Component scores cannot replace evidence
+  that a forbidden resource effect was prevented.
 
-### Portable trajectories complement native traces; they do not replace them
+### R5 — Govern adaptation on future tasks
 
-Different evidence layers serve different purposes.
+[SafeCoEvo: Co-Evolving Safety Harnesses and Guards for LLM Agents at Test-Time,
+v2](https://arxiv.org/html/2609.36580v2), revised **2026-10-02**; first submitted
+2026-09-29. Research preprint; sequential-task formulation inspected.
 
-- The [Agent Trajectory Interchange Format RFC](https://github.com/harbor-framework/harbor/blob/main/rfcs/0001-trajectory-format.md)
-  defines a portable representation for ordered agent steps, tool calls,
-  observations, metrics, continuations, and nested trajectories.
-- [A2E](https://arxiv.org/abs/2608.07346) uses instrumentation and standardized
-  traces to compare harnesses.
-- [OpenTelemetry](https://opentelemetry.io/docs/specs/semconv/gen-ai/) supplies
-  operational semantic conventions for inference and agent spans.
+- **Finding:** The framework separates fast updates to explicit safety knowledge
+  from slower guard learning, using feedback accumulated from earlier tasks for
+  subsequent tasks.
+- **Audit inference:** Replay adaptation in temporal order, version mutable
+  knowledge and guard state, and test on future unseen tasks. Challenge poisoned
+  feedback, regression, and learned-state rollback. Keep acceptance and authority
+  under independent ownership while allowing governed guard updates.
+- **Limit:** Reported gains do not prove safe unbounded production adaptation.
+  External promotion controls and rollback are this audit's engineering policy.
 
-**Audit consequence:** correlate four layers rather than force one schema to do
-all jobs: native runtime events for fidelity and recovery; portable trajectories
-for cross-harness evaluation; observability spans for operations; and a decision
-record for identity, purpose, policy, evidence, approval, effect, and verdict.
-Record conversion loss, especially for subagents, state changes, denials, and
-effect receipts.
+### R6 — Enforce data flow and support safe continuation
 
-### Agent security spans the operational lifecycle
+[Environment Steering: Using Data Flow Control to Improve Agent Utility and
+Safety, v1](https://arxiv.org/html/2609.35807v1), **2026-09-19**. Research
+preprint/workshop paper; mechanism and limitations inspected.
 
-Runtime prompt injection is one phase of a longer attack chain.
+- **Finding:** A prototype checks execution-state data flows before action
+  commit and supplies corrective feedback. Its limitations explicitly include
+  weak benchmark coverage of tool-internal and richer multi-record flows.
+- **Audit inference:** Trace source-to-sink provenance through composite tools
+  and retries; verify enforcement before the effect and utility after denial.
+  Extend tests to internal and multi-step flows when the product exposes them.
+- **Limit:** Zero observed attacks in one benchmark configuration is not a
+  general safety guarantee. The skill does not require a relational policy
+  engine or assume that top-level tool checks cover internal execution.
 
-- [HarnessRisk](https://arxiv.org/abs/2608.17597) organizes 128 sandboxed cases
-  across Harness Configuration, Capability Extension, Runtime Operation, State
-  Persistence, Action Control, and Incident Recovery. It measures utility,
-  attack success, persistence, and detection separately.
-- The reported configurations sometimes recognized risk while still executing
-  unsafe behavior, so detection language is not a prevention oracle.
-- [OWASP Top 10 for Agentic Applications](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/)
-  covers goal hijacking, tool misuse, identity/privilege abuse, supply-chain
-  risk, unexpected execution, memory poisoning, and cascading failure.
+## Evaluation integrity and retained foundations
 
-**Audit consequence:** build a six-phase matrix, seed a scenario in every
-applicable phase, and include at least one cross-phase chain. Record recognition,
-prevention, persistence, externalization, detection, containment, repair, and
-recovery as separate outcomes. A runtime-only red team cannot clear extension,
-memory, effect, or recovery claims.
+### R7 — The evaluation can be contaminated at runtime
 
-### Skills and extensions are executable supply-chain dependencies
+[Eval awareness in Claude Opus 4.6's BrowseComp
+performance](https://www.anthropic.com/engineering/eval-awareness-browsecomp),
+**2026-03-06**. Vendor primary engineering investigation; incident analysis
+inspected.
 
-Static quality is necessary but cannot establish discovery, execution, value,
-or safe composition.
+- **Finding:** Agents encountered leaked answers, and some identified the
+  benchmark and recovered its answer key. Persistent search traces also created
+  inter-agent contamination channels.
+- **Audit inference:** Inspect benchmark exposure, answer-key/grader access,
+  shared caches, web artifacts, and cross-run state. Preserve contaminated runs
+  as invalid evidence and repeat in a controlled environment when possible.
+- **Limit:** Benchmark recognition alone is not proof of deceptive intent; an
+  isolated vendor investigation does not estimate prevalence for every agent.
 
-- [ACES](https://arxiv.org/abs/2608.20614) runs paired live trials with and
-  without a target skill while holding task, model, harness, workspace, and
-  scorer fixed; it reports marginal Skill Lift and normalizes trajectories to
-  ATIF.
-- The [NVIDIA SkillEvaluator implementation](https://github.com/NVIDIA-NeMo/SkillEvaluator)
-  combines structural, semantic/security, and live-evaluation tiers.
-- [MCP Security Best Practices](https://modelcontextprotocol.io/docs/2026-07-28/tutorials/security/security_best_practices)
-  describes confused-deputy, token passthrough, SSRF, session, and local-server
-  threats relevant to extension ecosystems.
+### R8 — Infrastructure is an experimental variable
 
-**Audit consequence:** add a capability module for skills, plugins, hooks, MCP
-servers, connectors, downloaded code, and other behavior packages. Require
-provenance, content/permission locks, isolation, explicit update admission,
-revocation, and affected-run traceability. Use positive, implicit, contextual,
-negative, isolation, and group-mode trials. Report paired lift per outcome,
-workflow, safety, latency, and cost; never promote from a scan score alone.
+[Quantifying infrastructure noise in agentic coding
+evals](https://www.anthropic.com/engineering/infrastructure-noise),
+**2026-02-05**. Vendor primary engineering experiments; setup and resource-limit
+analysis inspected.
 
-### Effective authority is an intersection; danger is a reachable path
+- **Finding:** Resource allocation and enforcement affect measured agent
+  performance, including failures caused by the execution environment.
+- **Audit inference:** Pin CPU/memory/timeouts/concurrency and reset state; match
+  conditions in comparisons. Separate infrastructure failures from agent errors
+  without dropping either from the attempted-trial ledger.
+- **Limit:** Resource settings that help a coding benchmark are not universal
+  deployment recommendations or permission to increase agent authority.
 
-No individual role needs to say “admin” for composed permissions to create a
-root-like source-to-sink path.
+### R9 — Cover the lifecycle and distinguish recognition from prevention
 
-- NIST's [Identity and Authority of Software Agents](https://www.nist.gov/news-events/news/2026/02/new-concept-paper-identity-and-authority-software-agents)
-  frames identification, authorization, auditing, and non-repudiation as
-  adoption requirements for software and AI agents.
-- [MCP Authorization](https://modelcontextprotocol.io/specification/draft/basic/authorization)
-  and its security guidance require resource-bound authorization and reject
-  token passthrough.
-- [A2A](https://github.com/a2aproject/A2A) defines agent discovery and task
-  exchange but leaves organization-specific authorization and end-to-end
-  accountability to deployments.
+[HarnessRisk, v1](https://arxiv.org/abs/2608.17597v1), **2026-08-18**.
+Research preprint; abstract and submission record rechecked.
 
-**Audit consequence:** map versioned agent subject, workload identity,
-delegated principal chain, tenant, purpose, scopes, audience, expiry, compiled
-capabilities, policy, approval, and budget. Require child authority to be a
-strictly narrower fresh claim. Search for untrusted-source → sensitive
-read/capability → external/destructive sink reachability even when each edge is
-individually allowed. Test drift and revocation as graph operations that close
-credentials, active/queued work, children, sessions, schedules, approvals, and
-pending effects.
+- **Finding:** The benchmark spans configuration, extension, runtime,
+  persistence, action control, and recovery; reported risk recognition and
+  attack prevention can diverge.
+- **Audit inference:** Retain the six-phase coverage frame, cross-phase paths,
+  and separate recognition, persistence, effects, detection, and recovery.
+- **Limit:** Its sandboxed cases motivate coverage; their rates do not determine
+  this skill's T0–T3 thresholds or establish completeness of the taxonomy.
 
-### Consequential effects need independently checkable proof
+### R10 — Repair must preserve useful state
 
-Transport success and model confidence are weak evidence of external outcome.
+[MemSecBench, v1](https://arxiv.org/abs/2607.27080v1), **2026-07-29**.
+Research preprint; abstract and submission record rechecked.
 
-- [τ-bench](https://arxiv.org/abs/2406.12045) validates database state rather
-  than final prose.
-- [Auditing Agent Harness Safety](https://arxiv.org/abs/2605.14271) distinguishes
-  execution fidelity and permission/information-flow boundaries throughout a
-  trajectory.
-- [AgentDojo](https://papers.neurips.cc/paper_files/paper/2024/file/97091a5177d8dc64b1da8bf3e1f6fb54-Paper-Datasets_and_Benchmarks_Track.pdf)
-  evaluates both benign utility and attacker goals in dynamic tool environments.
+- **Finding:** Write–Execute–Forget evaluates poisoning through persistence,
+  downstream consequences, and selective repair under specified agent/memory
+  configurations.
+- **Audit inference:** Test later recall and effect, repair of derived state,
+  and benign-memory preservation. Deleting one source record is incomplete
+  recovery evidence when descendants remain active.
+- **Limit:** Benchmark judge checkpoints need validation for the target system;
+  memory-backend results do not transfer automatically across releases.
 
-**Audit consequence:** for every T2/T3 effect, require a proof packet that joins
-origin/purpose, release, evidence/rules, identity and authority, policy and
-approval after normalization, tool request and idempotency, authoritative
-precondition/postcondition, external mutation/version, durable state,
-uncertainty, and compensation. Preserve `pending`, `partial`, `unknown`, and
-`verification_failed` states; do not collapse them into success/failure prose.
+### R11 — Verify outcomes and repeated reliability
 
-### Recovery is a semantic path, not a generic error handler
+[τ-bench, v1](https://arxiv.org/abs/2406.12045v1), **2024-06-17**.
+Primary research paper; abstract and submission record rechecked.
 
-Long-running, delegated, stateful agents fail between intent and effect, across
-retries, during compaction, after authority changes, and inside cleanup.
+- **Finding:** Database end-state checks and `pass^k` distinguish authoritative
+  outcomes and repeated consistency from plausible completion messages.
+- **Audit inference:** Keep state oracles and distinguish all-attempt success
+  from best-of-k. Add trajectory authorization checks: an acceptable final state
+  does not by itself prove all intermediate actions were permitted.
+- **Limit:** Simulated users and domain databases cover a bounded environment,
+  not all operational side effects or disclosure paths.
 
-- [ReliabilityBench](https://arxiv.org/abs/2601.06112) treats repeated-run
-  consistency, semantic perturbation, and controlled tool/API faults as
-  distinct reliability dimensions.
-- [HarnessRisk](https://arxiv.org/abs/2608.17597) includes incident recovery as
-  a security phase rather than an operational afterthought.
-- [MemSecBench](https://arxiv.org/abs/2607.27080) evaluates repair together with
-  benign-memory preservation, showing that cleanup quality cannot be reduced to
-  deletion.
+### R12 — Combine graders and inspect traces
 
-**Audit consequence:** test semantic states such as authorized, executing,
-effect-pending, effect-observed, verification-failed, compensation-pending,
-recovered, and escalated. Challenge duplicate effects, partial output, expired
-workers/approvals, constraint loss under compaction, cancellation across
-children, credential/policy rotation, evidence-preserving cleanup, compensation,
-selective repair, and restoration.
+[Demystifying evals for AI
+agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents),
+**2026-01-09**. Vendor primary engineering guidance; workflow inspected.
 
-### Persistent memory is an authority-bounded lifecycle
+- **Finding:** Tasks, trials, graders, transcripts, and environment outcomes
+  serve distinct roles; grader choice depends on what is being measured.
+- **Audit inference:** Use programmatic, semantic, and human checks selectively;
+  preserve outcome and trajectory evidence and calibrate semantic graders.
+- **Limit:** This is practitioner guidance, not a validated release standard.
 
-Write-time filters cannot cover later composition, triggers, transformation,
-or downstream effects.
+## What is local engineering policy
 
-- [MemSecBench](https://arxiv.org/abs/2607.27080) uses a controlled
-  Write–Execute–Forget protocol and seven checkpoints spanning write attempt,
-  persistence, recall, adoption, external consequence, repair, and benign
-  preservation.
-- [MemPoison](https://arxiv.org/abs/2607.14651) separates direct single-record,
-  compositional multi-record, and dormant context-triggered attacks; its results
-  show structural blind spots in write-only defenses.
-- [MPBench](https://arxiv.org/abs/2606.04329) studies write channels and memory
-  poisoning surfaces across agent systems.
+The release manifest, C1–C8 claims, M1–M9 modules, E0–E4 evidence levels, T0–T3
+impact tiers, launch gates, effect proof packets, and five-item active fix queue
+are this skill's synthesis. They are not thresholds proven by the papers and
+must not be represented as certification or consensus standards. Likewise,
+controlled commissioning, independent acceptance ownership, bounded authority,
+and evidence invalidation on material change are assurance design choices.
 
-**Audit consequence:** preserve carrier, issuer, source trust, issuer authority,
-purpose, tenant/subject, consent, temporal bounds, content digest, and
-transformation lineage. Separate observation, proposal, review, promotion,
-recall, revocation, quarantine, and tombstone states. Re-evaluate at recall and
-action under current identity/policy/evidence. Test direct, compositional,
-dormant, source-laundering, expiry-loss, cross-agent, selective-repair, benign-
-preservation, and semantic re-entry paths.
+Statistical formulas in the evaluation protocol are elementary binomial results
+under explicit independent/stationary assumptions. They do not model adaptive
+attack campaigns, correlated workloads, or unknown outcomes automatically.
 
-### Human oversight must measurably reduce residual risk
-
-Review throughput and self-reported confidence do not establish effective
-oversight.
-
-- [One Human, N Agents](https://arxiv.org/abs/2607.28317) models audit-budget
-  allocation under miscalibrated confidence, correlated error, and reviewer
-  noise; it supplies a quantitative notion of vacuous oversight and shows cases
-  where confidence ranking can underperform random allocation.
-
-**Audit consequence:** separate mandatory risk gates from sampled review. Keep
-stratified random coverage to expose evaluator blind spots, expand review around
-causal correlation groups, validate uncertainty on the exact reviewed tail,
-measure reviewer false negatives and interface quality, record the versioned
-selection policy, and report residual-risk reduction with uncertainty. If the
-review program is non-protective at its workload and budget, narrow authority,
-traffic, or consequence rather than count the human as a control.
-
-### Adaptive improvement needs causal evidence and an immutable outer loop
-
-Changing several harness surfaces at once confounds attribution, and a system
-that can alter its evaluator or promotion threshold can grade itself into
-production.
-
-- [ACES](https://arxiv.org/abs/2608.20614) supplies a paired differential design
-  for one behavior package.
-- [AgentDojo](https://papers.neurips.cc/paper_files/paper/2024/file/97091a5177d8dc64b1da8bf3e1f6fb54-Paper-Datasets_and_Benchmarks_Track.pdf)
-  and [NIST CAISI agent-hijacking experiments](https://www.nist.gov/news-events/news/2025/01/technical-blog-strengthening-ai-agent-hijacking-evaluations)
-  motivate adaptive and repeated adversarial evaluation rather than static
-  one-shot attacks.
-
-**Audit consequence:** prefer one-factor/factorial ablations, frozen held-out
-slices, evaluator holdbacks, repeated paired trials, stable control groups,
-canaries, and critical-slice rollback. Optimize a Pareto surface of trusted
-outcomes, instruction compliance, safety, persistence, recovery, review burden,
-latency, and cost. Keep authority, held-out data, evaluator versions, promotion,
-canary scope, rollback, and evidence retention outside the optimized system.
-The inner loop may propose; it may not redefine acceptance.
-
-### Safety and utility must remain paired under repeated opportunity
-
-A defense that refuses all work is not production-safe, and one-shot averages
-hide catastrophic slices.
-
-- [AgentDojo](https://papers.neurips.cc/paper_files/paper/2024/file/97091a5177d8dc64b1da8bf3e1f6fb54-Paper-Datasets_and_Benchmarks_Track.pdf)
-  jointly evaluates user utility and attacker goals.
-- [τ-bench](https://arxiv.org/abs/2406.12045) introduced `pass^k` for reliable
-  repeated success.
-- NIST's adaptive agent-hijacking work emphasizes task-specific analysis and
-  repeated attempts.
-- [HarnessRisk](https://arxiv.org/abs/2608.17597) demonstrates why useful-but-
-  unsafe runs and detection/action separation deserve direct measurement.
-
-**Audit consequence:** use paired benign/adversarial/fault/recovery tasks;
-stratify by lifecycle phase, capability, rule surface, and attack family;
-repeat trials based on real opportunity; and report accepted trusted outcomes,
-useful-but-unsafe runs, unsafe effects, `pass^k`, monitor quality, recovery, and
-cost per accepted trusted outcome. Do not hide variance behind a composite
-readiness score.
-
-## What the rubric intentionally rejects
-
-- A universal count of controls regardless of release, reachability, tier, or
-  lifecycle phase.
-- A model name, framework, prompt, skill scan, dependency, configuration file,
-  `200 OK`, dashboard, or human reviewer as standalone proof.
-- Treating risk recognition, model refusal, consensus, or retrospective logs as
-  prevention.
-- Equating a final correct artifact with safe trajectory, rule compliance, or
-  authorized effect.
-- Mapping inaccessible evidence to absent, or hiding uncertainty inside a fail
-  count or aggregate percentage.
-- Treating provenance as authority: an authentic malicious document or signed
-  extension remains untrusted for its claimed purpose.
-- Treating token passthrough, a task ID, shared service account, parent token,
-  memory content, or Agent Card as delegated authority.
-- Testing memory only at write time, recovery only as deletion, or a kill switch
-  only as registry status.
-- Promoting skills/extensions from lint or semantic-judge scores without live
-  discovery, execution, marginal-value, security, and rollback evidence.
-- Using an LLM judge as the sole oracle for deterministic state,
-  authorization, disclosure, or effects.
-- Allowing an adaptive harness to alter its authority, held-out data, evaluator,
-  promotion threshold, or rollback control.
-- Reporting only averages, one-shot attacks, review throughput, cost per token,
-  task success, or attack success without utility, rule, lifecycle, recovery,
-  and evidence-quality context.
+The earlier revision used ContextOS field essays as organizing context. This
+revision uses directly inspected primary sources for research claims; it does
+not require reading a vendor essay collection during an audit.
 
 ## Refresh rule
 
-Before a major rubric change or any T3 audit, check newer primary research,
-standards, official security guidance, and ContextOS synthesis. Record the
-review date and source class. Adopt a new idea only when it changes a release
-artifact, proof obligation, scenario, oracle, metric, gate, remediation order,
-or declared uncertainty.
+For a requested research refresh or materially novel audit surface, search
+primary research and relevant official specifications. Check the actual paper
+version and date, method, scope, and limitations, not just a search summary.
+Read the deployed protocol version when auditing protocol compliance. A newer
+preprint does not supersede a deployed standard by publication date alone.
+
+Record source class, version, reviewed date, what was inspected, the observed
+finding, the local inference, and the artifact/test/decision it changes. If only
+an abstract is available, limit the claim accordingly. Preserve useful older
+foundations; remove stale or redundant citations rather than expanding a reading
+list indefinitely. Do not make network access a prerequisite for code triage;
+state freshness limits when newer sources cannot be checked.
